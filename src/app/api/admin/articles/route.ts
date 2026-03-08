@@ -24,13 +24,11 @@ const createArticleSchema = z.object({
     en: z.string().min(1),
   }),
   domain: z.enum([
-    // 原有领域分类
     'agent', 'mcp', 'skill',
-    // MVP 内容分类
     'foundation', 'transport',
     'tools-filesystem', 'tools-postgres', 'tools-github',
     'error-codes', 'scenarios',
-  ]),
+  ]),,
   priority: z.enum(['P0', 'P1']).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   tags: z.array(z.string()).optional(),
@@ -124,11 +122,11 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // 转换数据（SQLite 中 JSON 字段为字符串）
+    // PostgreSQL 的 Json 类型返回已解析的对象
     const items = articles.map(article => ({
       ...article,
-      title: JSON.parse(article.title) as { zh: string; en: string },
-      tags: JSON.parse(article.tags) as string[],
+      title: article.title as { zh: string; en: string },
+      tags: article.tags as string[],
     }))
 
     return NextResponse.json(
