@@ -6,7 +6,10 @@ import { z } from 'zod'
 
 export const idSchema = z.string().min(1, 'ID 不能为空')
 
-export const emailSchema = z.string().email('邮箱格式不正确')
+export const emailSchema = z
+  .string()
+  .min(1, '邮箱不能为空')
+  .regex(/^[^\s@]+@[^\s@]+$/, '邮箱格式不正确')
 
 export const passwordSchema = z
   .string()
@@ -42,8 +45,8 @@ export const articleDomainSchema = z.enum([
   'agent', 'mcp', 'skill',
   // MVP 内容分类
   'foundation', 'transport',
-  'tools-filesystem', 'tools-postgres', 'tools-github',
-  'error-codes', 'scenarios',
+  'tools_filesystem', 'tools_postgres', 'tools_github',
+  'error_codes', 'scenarios',
 ])
 
 export const articleStatusSchema = z.enum(['draft', 'published', 'archived', 'deprecated'])

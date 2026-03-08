@@ -236,10 +236,13 @@ export class VerificationService {
   }
 
   /**
-   * 安全解析 JSON
+   * 安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
    */
-  private parseJson<T>(value: string | null, defaultValue: T): T {
+  private parseJson<T>(value: unknown, defaultValue: T): T {
     if (!value) return defaultValue
+    // PostgreSQL 的 Json 类型返回已解析的对象，直接返回
+    if (typeof value !== 'string') return value as T
+    // 如果是字符串（SQLite 兼容），尝试解析
     try {
       return JSON.parse(value) as T
     } catch {

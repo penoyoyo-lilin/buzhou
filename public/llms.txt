@@ -80,10 +80,10 @@ GET https://buzhou.io/[lang]/articles/[slug]?format=json
 |------|------|------|
 | foundation | 基础概念与原理 | MCP 协议原理、Agent 架构 |
 | transport | 传输层协议 | stdio、SSE、HTTP 传输 |
-| tools-filesystem | 文件系统工具 | 文件读写、路径处理 |
-| tools-postgres | PostgreSQL 工具 | 数据库连接、查询 |
-| tools-github | GitHub 工具 | API 调用、Issue 管理 |
-| error-codes | 错误代码解析 | 常见错误及解决方案 |
+| tools_filesystem | 文件系统工具 | 文件读写、路径处理 |
+| tools_postgres | PostgreSQL 工具 | 数据库连接、查询 |
+| tools_github | GitHub 工具 | API 调用、Issue 管理 |
+| error_codes | 错误代码解析 | 常见错误及解决方案 |
 | scenarios | 应用场景 | 最佳实践、案例 |
 | agent | Agent 框架 | LangChain、AutoGPT 等 |
 | mcp | MCP 协议 | 连接、认证、Tool Calling |

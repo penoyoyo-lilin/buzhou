@@ -12,14 +12,15 @@ export interface LocalizedString {
 
 /**
  * 文章领域分类
+ * 注意：Prisma 枚举不支持连字符，使用下划线
  */
 export type ArticleDomain =
   // 原有领域分类
   | 'agent' | 'mcp' | 'skill'
   // MVP 内容分类
   | 'foundation' | 'transport'
-  | 'tools-filesystem' | 'tools-postgres' | 'tools-github'
-  | 'error-codes' | 'scenarios'
+  | 'tools_filesystem' | 'tools_postgres' | 'tools_github'
+  | 'error_codes' | 'scenarios'
 
 /**
  * 文章优先级

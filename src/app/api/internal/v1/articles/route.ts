@@ -44,8 +44,8 @@ const createArticleRequestSchema = z.object({
     'agent', 'mcp', 'skill',
     // MVP 内容分类
     'foundation', 'transport',
-    'tools-filesystem', 'tools-postgres', 'tools-github',
-    'error-codes', 'scenarios'
+    'tools_filesystem', 'tools_postgres', 'tools_github',
+    'error_codes', 'scenarios'
   ]),
   priority: z.enum(['P0', 'P1']).optional().default('P1'),
   tags: z.array(z.string()).optional(),

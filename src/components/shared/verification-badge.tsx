@@ -47,10 +47,10 @@ const domainDisplayNames: Record<ArticleDomain, string> = {
   // MVP 内容分类
   foundation: 'Foundation',
   transport: 'Transport',
-  'tools-filesystem': 'Filesystem',
-  'tools-postgres': 'Postgres',
-  'tools-github': 'GitHub',
-  'error-codes': 'Error',
+  'tools_filesystem': 'Filesystem',
+  'tools_postgres': 'Postgres',
+  'tools_github': 'GitHub',
+  'error_codes': 'Error',
   scenarios: 'Scenario',
 }
 
@@ -61,10 +61,10 @@ const domainVariants: Record<ArticleDomain, 'agent' | 'mcp' | 'skill' | 'default
   skill: 'skill',
   foundation: 'default',
   transport: 'secondary',
-  'tools-filesystem': 'default',
-  'tools-postgres': 'default',
-  'tools-github': 'default',
-  'error-codes': 'secondary',
+  'tools_filesystem': 'default',
+  'tools_postgres': 'default',
+  'tools_github': 'default',
+  'error_codes': 'secondary',
   scenarios: 'skill',
 }
 

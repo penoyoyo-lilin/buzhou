@@ -2,23 +2,23 @@
  * 内部 API Key 管理
  * GET: 获取当前 Key 信息
  * POST: 重新生成 Key
+ *
+ * 注意：API Key 存储在数据库中，支持 Serverless 环境
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { randomBytes, createHash } from 'crypto'
-import fs from 'fs'
-import path from 'path'
+import { prisma } from '@/core/db/client'
 
-// .env 文件路径
-const ENV_PATH = path.resolve(process.cwd(), '.env')
+const CONFIG_KEY = 'internal_api_key'
 
 // 生成新的 API Key
 function generateApiKey(): string {
   return `buzhou_internal_${randomBytes(24).toString('hex')}`
 }
 
-// 哈希 API Key
+// 哈希 API Key（用于安全存储）
 function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex')
 }
@@ -28,33 +28,35 @@ function getKeyPrefix(key: string): string {
   return key.substring(0, 12) + '...' + key.substring(key.length - 4)
 }
 
-// 更新 .env 文件中的 API Key
-function updateEnvFile(newKey: string): void {
-  let envContent = ''
+// 从数据库获取 API Key
+async function getStoredApiKey(): Promise<string | null> {
+  const config = await prisma.systemConfig.findUnique({
+    where: { key: CONFIG_KEY }
+  })
+  return config?.value || null
+}
 
-  if (fs.existsSync(ENV_PATH)) {
-    envContent = fs.readFileSync(ENV_PATH, 'utf-8')
-  }
-
-  const keyLine = `INTERNAL_API_KEY="${newKey}"`
-
-  if (envContent.includes('INTERNAL_API_KEY=')) {
-    // 替换现有的 key
-    envContent = envContent.replace(
-      /INTERNAL_API_KEY=.*/,
-      keyLine
-    )
-  } else {
-    // 添加新的 key
-    envContent += `\n${keyLine}\n`
-  }
-
-  fs.writeFileSync(ENV_PATH, envContent)
+// 保存 API Key 到数据库
+async function saveApiKey(key: string): Promise<void> {
+  await prisma.systemConfig.upsert({
+    where: { key: CONFIG_KEY },
+    update: { value: key },
+    create: { key: CONFIG_KEY, value: key }
+  })
 }
 
 export async function GET() {
   try {
-    const currentKey = process.env.INTERNAL_API_KEY
+    // 优先从数据库获取
+    let currentKey = await getStoredApiKey()
+
+    // 如果数据库没有，从环境变量获取并同步到数据库
+    if (!currentKey) {
+      currentKey = process.env.INTERNAL_API_KEY || null
+      if (currentKey) {
+        await saveApiKey(currentKey)
+      }
+    }
 
     if (!currentKey) {
       return NextResponse.json(
@@ -67,8 +69,8 @@ export async function GET() {
       successResponse({
         prefix: getKeyPrefix(currentKey),
         length: currentKey.length,
-        createdAt: null, // 可扩展：存储创建时间
-        lastUsedAt: null, // 可扩展：存储最后使用时间
+        createdAt: null,
+        lastUsedAt: null,
       })
     )
   } catch (error) {
@@ -85,8 +87,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { confirmation } = body
 
+    // 获取当前 Key
+    let currentKey = await getStoredApiKey()
+    if (!currentKey) {
+      currentKey = process.env.INTERNAL_API_KEY || null
+    }
+
     // 安全确认：需要输入当前 Key 的前几位
-    const currentKey = process.env.INTERNAL_API_KEY
     if (currentKey && confirmation !== currentKey.substring(0, 8)) {
       return NextResponse.json(
         errorResponse(ErrorCodes.VALIDATION_ERROR, '确认码不正确'),
@@ -97,8 +104,8 @@ export async function POST(request: NextRequest) {
     // 生成新的 API Key
     const newKey = generateApiKey()
 
-    // 更新 .env 文件
-    updateEnvFile(newKey)
+    // 保存到数据库
+    await saveApiKey(newKey)
 
     // 返回新 Key（仅此一次显示完整 Key）
     return NextResponse.json(

@@ -15,6 +15,9 @@ interface ArticlePageProps {
     lang: Locale
     slug: string
   }
+  searchParams: {
+    format?: 'html' | 'markdown' | 'json'
+  }
 }
 
 export async function generateStaticParams() {
@@ -22,13 +25,40 @@ export async function generateStaticParams() {
   return []
 }
 
-export default async function ArticlePage({ params }: ArticlePageProps) {
+export default async function ArticlePage({ params, searchParams }: ArticlePageProps) {
   const { lang, slug } = params
+  const { format = 'html' } = await Promise.resolve(searchParams)
   const article = await articleService.findBySlug(slug)
 
   if (!article) {
     notFound()
   }
+
+  // 如果请求 Markdown 格式，直接返回纯文本
+  if (format === 'markdown') {
+    const markdownContent = renderService.toMarkdown(article, lang)
+    return new Response(markdownContent, {
+      headers: {
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'X-Article-Id': article.id,
+        'X-Article-Slug': article.slug,
+      },
+    })
+  }
+
+  // 如果请求 JSON 格式，返回结构化数据
+  if (format === 'json') {
+    const jsonContent = renderService.toJsonResponse(article, lang)
+    return new Response(jsonContent, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'X-Article-Id': article.id,
+        'X-Article-Slug': article.slug,
+      },
+    })
+  }
+
+  // HTML 格式（默认），继续渲染页面
 
   // 获取验证记录
   const verificationRecords = article.verificationRecords || []
