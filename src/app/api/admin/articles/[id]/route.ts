@@ -33,21 +33,21 @@ export async function GET(
       )
     }
 
-    // 解析 JSON 字段（SQLite 存储为字符串）
+    // PostgreSQL 的 Json 类型返回已解析的对象
     const parsedArticle = {
       ...article,
-      title: JSON.parse(article.title) as { zh: string; en: string },
-      summary: JSON.parse(article.summary) as { zh: string; en: string },
-      content: JSON.parse(article.content) as { zh: string; en: string },
-      tags: JSON.parse(article.tags) as string[],
-      keywords: article.keywords ? JSON.parse(article.keywords) as string[] : [],
-      codeBlocks: article.codeBlocks ? JSON.parse(article.codeBlocks) : [],
-      metadata: article.metadata ? JSON.parse(article.metadata) : {},
-      qaPairs: article.qaPairs ? JSON.parse(article.qaPairs) : [],
-      relatedIds: article.relatedIds ? JSON.parse(article.relatedIds) as string[] : [],
-      verificationRecords: article.verificationRecords.map((record) => ({
+      title: article.title ? (article.title as { zh: string; en: string }) : { zh: '', en: '' },
+      summary: article.summary ? (article.summary as { zh: string; en: string }) : { zh: '', en: '' },
+      content: article.content ? (article.content as { zh: string; en: string }) : { zh: '', en: '' },
+      tags: article.tags ? (article.tags as string[]) : [],
+      keywords: article.keywords ? (article.keywords as string[]) : [],
+      codeBlocks: article.codeBlocks || [],
+      metadata: article.metadata || {},
+      qaPairs: article.qaPairs || [],
+      relatedIds: article.relatedIds ? (article.relatedIds as string[]) : [],
+      verificationRecords: (article.verificationRecords || []).map((record) => ({
         ...record,
-        environment: JSON.parse(record.environment) as { os: string; runtime: string; version: string },
+        environment: record.environment as { os: string; runtime: string; version: string },
       })),
     }
 
