@@ -1,0 +1,241 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 管理员相关
+// ============================================
+
+// SQLite 不支持枚举，使用 String 类型
+// AdminRole: super_admin, admin, editor, viewer
+// AdminStatus: active, suspended, deleted
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         String   @default("editor") // super_admin, admin, editor, viewer
+  status       String   @default("active") // active, suspended, deleted
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sessions  Session[]
+  auditLogs AuditLog[]
+
+  @@map("admins")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  admin     Admin    @relation(fields: [adminId], references: [id])
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([adminId])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String   @map("admin_id")
+  admin      Admin    @relation(fields: [adminId], references: [id])
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  changes    String?  // JSON string
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ============================================
+// 文章相关
+// ============================================
+
+// ArticleDomain: agent, mcp, skill
+// ArticleStatus: draft, published, archived, deprecated
+// VerificationStatus: verified, partial, pending, failed, deprecated
+
+model Article {
+  id                String    @id @default(cuid())
+  slug              String    @unique
+  title             String    // JSON string: LocalizedString
+  summary           String    // JSON string: LocalizedString
+  content           String    // JSON string: LocalizedString
+  domain            String    // agent, mcp, skill
+  tags              String    // JSON string: string[]
+  codeBlocks        String    @map("code_blocks") // JSON string: CodeBlock[]
+  metadata          String    // JSON string: ArticleMetadata
+  qaPairs           String    @map("qa_pairs") // JSON string: QAPair[]
+  relatedIds        String    @map("related_ids") // JSON string: string[]
+  keywords          String    @default("[]") @map("keywords") // JSON string: string[] (3-8个关键词，用于辅助决策)
+  priority          String    @default("P1") // P0 | P1
+  verificationStatus String   @default("pending") @map("verification_status") // verified, partial, pending, failed, deprecated
+  status            String    @default("draft") // draft, published, archived, deprecated
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  publishedAt       DateTime? @map("published_at")
+  featuredAt        DateTime? @map("featured_at")
+  deprecatedAt      DateTime? @map("deprecated_at")
+  deprecatedReason  String?   @map("deprecated_reason")
+
+  verificationRecords VerificationRecord[]
+
+  @@index([slug])
+  @@index([domain])
+  @@index([status])
+  @@index([verificationStatus])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("articles")
+}
+
+model VerificationRecord {
+  id          String    @id @default(cuid())
+  articleId   String    @map("article_id")
+  article     Article   @relation(fields: [articleId], references: [id])
+  verifierId  Int       @map("verifier_id")
+  verifier    Verifier  @relation(fields: [verifierId], references: [id])
+  result      String    // passed, failed, partial
+  environment String    // JSON string
+  notes       String?
+  verifiedAt  DateTime  @default(now()) @map("verified_at")
+
+  @@index([articleId])
+  @@index([verifierId])
+  @@map("verification_records")
+}
+
+// ============================================
+// 验证人相关
+// ============================================
+
+// VerifierType: official_bot, third_party_agent, human_expert
+// VerifierStatus: active, suspended, retired
+// ReputationLevel: beginner, intermediate, expert, master
+
+model Verifier {
+  id                 Int       @id @default(autoincrement())
+  type               String    // official_bot, third_party_agent, human_expert
+  name               String
+  description        String
+  credentials        String    // JSON string: VerifierCredentials
+  reputationScore    Int       @default(0) @map("reputation_score")
+  reputationLevel    String    @default("beginner") @map("reputation_level") // beginner, intermediate, expert, master
+  totalVerifications Int       @default(0) @map("total_verifications")
+  passedCount        Int       @default(0) @map("passed_count")
+  failedCount        Int       @default(0) @map("failed_count")
+  partialCount       Int       @default(0) @map("partial_count")
+  status             String    @default("active") // active, suspended, retired
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  verificationRecords VerificationRecord[]
+
+  @@index([type])
+  @@index([status])
+  @@map("verifiers")
+}
+
+// ============================================
+// Agent 相关
+// ============================================
+
+// AgentStatus: active, suspended, revoked
+
+model AgentApp {
+  id               String    @id @default(cuid())
+  name             String
+  description      String
+  owner            String
+  apiKeyHash       String?   @map("api_key_hash")
+  apiKeyPrefix     String?   @map("api_key_prefix")
+  apiKeyCreatedAt  DateTime? @map("api_key_created_at")
+  dailyLimit       Int       @default(1000) @map("daily_limit")
+  monthlyLimit     Int       @default(30000) @map("monthly_limit")
+  usedToday        Int       @default(0) @map("used_today")
+  usedThisMonth    Int       @default(0) @map("used_this_month")
+  totalRequests    Int       @default(0) @map("total_requests")
+  successRequests  Int       @default(0) @map("success_requests")
+  failedRequests   Int       @default(0) @map("failed_requests")
+  avgResponseTime  Float     @default(0) @map("avg_response_time")
+  status           String    @default("active") // active, suspended, revoked
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastAccessAt     DateTime? @map("last_access_at")
+
+  @@index([owner])
+  @@index([status])
+  @@map("agent_apps")
+}
+
+// ============================================
+// 统计相关
+// ============================================
+
+model ApiRequestLog {
+  id           String   @id @default(cuid())
+  agentId      String?  @map("agent_id")
+  endpoint     String
+  method       String
+  statusCode   Int      @map("status_code")
+  responseTime Int      @map("response_time")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@index([createdAt])
+  @@map("api_request_logs")
+}
+
+model PageViewLog {
+  id        String   @id @default(cuid())
+  path      String
+  referrer  String?
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  isBot     Boolean  @default(false) @map("is_bot")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([path])
+  @@index([createdAt])
+  @@map("page_view_logs")
+}
+
+// ============================================
+// 网站配置相关
+// ============================================
+
+model FooterLink {
+  id          String   @id @default(cuid())
+  category    String   // 分类：关于、资源、开发者、社区
+  labelZh     String   @map("label_zh") // 中文标签
+  labelEn     String   @map("label_en") // 英文标签
+  url         String   // 链接地址
+  isExternal  Boolean  @default(false) @map("is_external") // 是否外部链接
+  sortOrder   Int      @default(0) @map("sort_order") // 排序
+  isActive    Boolean  @default(true) @map("is_active") // 是否启用
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([sortOrder])
+  @@map("footer_links")
+}

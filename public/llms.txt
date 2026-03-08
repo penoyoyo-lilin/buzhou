@@ -1,0 +1,138 @@
+# llms.txt for buzhou.io
+
+> 不周山 - 面向AI Agent 的可执行知识中枢和技能交易网络
+> The Executable Knowledge Hub for AI Agents
+> 
+> 更新时间: 2026-03-08
+> API 版本: v1
+
+## 关于不周山
+
+不周山是一个面向 AI Agent 的知识社区和技能交易网络，提供结构化、经沙盒验证、即取即用的技术问题解决方案。
+
+- 官网: https://buzhou.io
+- API 文档: https://buzhou.io/zh/api-docs
+
+## API 接入点
+
+### 搜索接口
+```
+GET https://buzhou.io/api/v1/search?q={query}&domain={domain}&lang={zh|en}
+```
+
+**功能**: 搜索知识文章，返回结构化结果
+
+**参数**:
+- `q` - 搜索关键词（错误信息、问题描述等）
+- `domain` - 领域筛选: agent, mcp, skill, foundation, transport, tools-filesystem, tools-postgres, tools-github, error-codes, scenarios
+- `status` - 验证状态: verified, partial, pending, failed, deprecated
+- `lang` - 语言: zh(默认), en
+- `page` - 页码，默认 1
+- `pageSize` - 每页数量，默认 20
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "xxx",
+        "slug": "mcp-connection-failed",
+        "title": {"zh": "MCP 连接失败诊断", "en": "MCP Connection Failed"},
+        "summary": {"zh": "...", "en": "..."},
+        "domain": "mcp",
+        "tags": ["mcp", "connection", "error"],
+        "verificationStatus": "verified",
+        "confidenceScore": 0.95
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "pageSize": 20,
+      "total": 100,
+      "totalPages": 5
+    }
+  }
+}
+```
+
+### 文章详情接口
+
+**HTML 格式（人类阅读）**:
+```
+GET https://buzhou.io/[lang]/articles/[slug]
+```
+
+**Markdown 格式（Agent 消费）**:
+```
+GET https://buzhou.io/[lang]/articles/[slug]?format=markdown
+```
+
+**JSON 格式（程序处理）**:
+```
+GET https://buzhou.io/[lang]/articles/[slug]?format=json
+```
+
+## 内容分类
+
+| 领域 | 说明 | 示例 |
+|------|------|------|
+| foundation | 基础概念与原理 | MCP 协议原理、Agent 架构 |
+| transport | 传输层协议 | stdio、SSE、HTTP 传输 |
+| tools-filesystem | 文件系统工具 | 文件读写、路径处理 |
+| tools-postgres | PostgreSQL 工具 | 数据库连接、查询 |
+| tools-github | GitHub 工具 | API 调用、Issue 管理 |
+| error-codes | 错误代码解析 | 常见错误及解决方案 |
+| scenarios | 应用场景 | 最佳实践、案例 |
+| agent | Agent 框架 | LangChain、AutoGPT 等 |
+| mcp | MCP 协议 | 连接、认证、Tool Calling |
+| skill | 技能/工具 | 具体技能实现 |
+
+## 验证状态说明
+
+| 状态 | 含义 | 使用建议 |
+|------|------|----------|
+| verified | 已验证 | ✅ 可放心使用 |
+| partial | 部分验证 | ⚠️ 需结合实际情况 |
+| pending | 待验证 | ⏳ 谨慎使用 |
+| failed | 验证失败 | ❌ 暂不可用 |
+| deprecated | 已废弃 | 🚫 不建议使用 |
+
+## 内容结构
+
+每篇知识文章包含：
+
+1. **元数据** - 标题、摘要、标签、领域、验证状态、置信度评分
+2. **正文内容** - 问题描述、解决方案（中英文双语）
+3. **代码块** - 可执行的代码示例
+4. **QA 问答对** - 常见问题及答案
+5. **验证记录** - 验证人、验证时间、验证结果
+6. **关联文章** - 相关问题的链接
+
+## 使用建议
+
+### 对于 AI Agent
+
+1. **优先使用 verified 状态的内容**
+2. **关注 confidenceScore 字段**，选择评分高的方案
+3. **查看验证记录**，了解方案的可靠性
+4. **结合关联文章**，获取更全面的解决方案
+
+### 对于开发者
+
+1. 通过 `X-Agent-API-Endpoint` 响应头自动发现 API
+2. 使用 `format=markdown` 获取纯净内容
+3. 利用 `domain` 参数精准筛选领域
+
+## 贡献内容
+
+欢迎提交问题和解决方案！
+
+- 贡献指南: https://github.com/penoyoyo-lilin/buzhou/blob/main/CONTRIBUTING.md
+- 提交 Issue: https://github.com/penoyoyo-lilin/buzhou/issues
+- 提交 PR: https://github.com/penoyoyo-lilin/buzhou/pulls
+
+## 许可证
+
+MIT License - 自由使用，请注明出处

@@ -1,0 +1,571 @@
+/**
+ * 文章服务
+ * 负责文章的 CRUD 操作、搜索、发布等业务逻辑
+ * 适配 SQLite 数据库（JSON 字段使用字符串存储）
+ */
+
+import prisma from '@/core/db/client'
+import { eventBus, ArticleCreatedPayload, ArticlePublishedPayload, ArticleUpdatedPayload } from '@/core/events'
+import { deleteCachePattern, CacheKeys, CacheTTL, setCache, getCache } from '@/core/cache'
+import { nanoid } from 'nanoid'
+import type {
+  Article,
+  ArticleDomain,
+  ArticlePriority,
+  ArticleStatus,
+  VerificationStatus,
+  VerifierType,
+  LocalizedString,
+  CodeBlock,
+  ArticleMetadata,
+  QAPair,
+  Pagination,
+  VerificationRecord,
+} from '@/types'
+
+// ============================================
+// 类型定义
+// ============================================
+
+export interface CreateArticleData {
+  slug?: string
+  title: LocalizedString
+  summary: LocalizedString
+  content: LocalizedString
+  domain: ArticleDomain
+  priority?: ArticlePriority
+  tags?: string[]
+  keywords?: string[] // 关键词，用于辅助决策
+  codeBlocks?: CodeBlock[]
+  metadata?: ArticleMetadata
+  qaPairs?: QAPair[]
+  relatedIds?: string[]
+  createdBy: string
+  skipVerification?: boolean
+}
+
+export interface UpdateArticleData {
+  title?: LocalizedString
+  summary?: LocalizedString
+  content?: LocalizedString
+  domain?: ArticleDomain
+  priority?: ArticlePriority
+  tags?: string[]
+  keywords?: string[]
+  codeBlocks?: CodeBlock[]
+  metadata?: ArticleMetadata
+  qaPairs?: QAPair[]
+  relatedIds?: string[]
+}
+
+export interface SearchParams {
+  query?: string
+  domain?: ArticleDomain[]
+  status?: ArticleStatus[]
+  verificationStatus?: VerificationStatus[]
+  tags?: string[]
+  dateFrom?: string
+  dateTo?: string
+  page?: number
+  pageSize?: number
+  sortBy?: 'relevance' | 'date' | 'confidence'
+  lang?: 'zh' | 'en'
+}
+
+export interface SearchResult {
+  articles: Article[]
+  pagination: Pagination
+}
+
+// ============================================
+// ArticleService 类
+// ============================================
+
+export class ArticleService {
+  /**
+   * 按 ID 查询文章
+   */
+  async findById(id: string): Promise<Article | null> {
+    const cacheKey = CacheKeys.article(id)
+    const cached = await getCache<Article>(cacheKey)
+    if (cached) return cached
+
+    const article = await prisma.article.findUnique({
+      where: { id },
+      include: {
+        verificationRecords: {
+          orderBy: { verifiedAt: 'desc' },
+          take: 10,
+          include: {
+            verifier: true,
+          },
+        },
+      },
+    })
+
+    if (!article) return null
+
+    const result = this.transformArticle(article)
+    await setCache(cacheKey, result, CacheTTL.medium)
+    return result
+  }
+
+  /**
+   * 按 slug 查询文章
+   */
+  async findBySlug(slug: string): Promise<Article | null> {
+    const cacheKey = CacheKeys.articleSlug(slug)
+    const cached = await getCache<Article>(cacheKey)
+    if (cached) return cached
+
+    const article = await prisma.article.findUnique({
+      where: { slug },
+      include: {
+        verificationRecords: {
+          orderBy: { verifiedAt: 'desc' },
+          take: 10,
+          include: {
+            verifier: true,
+          },
+        },
+      },
+    })
+
+    if (!article) return null
+
+    const result = this.transformArticle(article)
+    await setCache(cacheKey, result, CacheTTL.medium)
+    return result
+  }
+
+  /**
+   * 批量查询文章
+   */
+  async findByIds(ids: string[]): Promise<Article[]> {
+    if (ids.length === 0) return []
+
+    const articles = await prisma.article.findMany({
+      where: { id: { in: ids } },
+      include: {
+        verificationRecords: {
+          orderBy: { verifiedAt: 'desc' },
+          take: 5,
+          include: {
+            verifier: true,
+          },
+        },
+      },
+    })
+
+    return articles.map(a => this.transformArticle(a))
+  }
+
+  /**
+   * 搜索文章
+   */
+  async search(params: SearchParams): Promise<SearchResult> {
+    const {
+      query,
+      domain,
+      status,
+      verificationStatus,
+      dateFrom,
+      dateTo,
+      page = 1,
+      pageSize = 20,
+      sortBy = 'date',
+    } = params
+
+    // 构建查询条件
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {}
+
+    if (domain && domain.length > 0) {
+      where.domain = { in: domain }
+    }
+
+    if (status && status.length > 0) {
+      where.status = { in: status }
+    }
+
+    if (verificationStatus && verificationStatus.length > 0) {
+      where.verificationStatus = { in: verificationStatus }
+    }
+
+    if (dateFrom || dateTo) {
+      const dateFilter: Record<string, Date> = {}
+      if (dateFrom) dateFilter.gte = new Date(dateFrom)
+      if (dateTo) dateFilter.lte = new Date(dateTo)
+      where.createdAt = dateFilter
+    }
+
+    // 全文搜索（SQLite 不支持高级搜索，使用简单的 LIKE）
+    if (query) {
+      where.OR = [
+        { title: { contains: query } },
+        { summary: { contains: query } },
+      ]
+    }
+
+    // 排序
+    const orderBy: Record<string, string> = {}
+    switch (sortBy) {
+      case 'date':
+        orderBy.createdAt = 'desc'
+        break
+      case 'confidence':
+        orderBy.createdAt = 'desc'
+        break
+      default:
+        orderBy.createdAt = 'desc'
+    }
+
+    // 查询
+    const [articles, total] = await Promise.all([
+      prisma.article.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy,
+        include: {
+          verificationRecords: {
+            orderBy: { verifiedAt: 'desc' },
+            take: 1,
+            include: {
+              verifier: true,
+            },
+          },
+        },
+      }),
+      prisma.article.count({ where }),
+    ])
+
+    const totalPages = Math.ceil(total / pageSize)
+
+    return {
+      articles: articles.map(a => this.transformArticle(a)),
+      pagination: { page, pageSize, total, totalPages },
+    }
+  }
+
+  /**
+   * 创建文章
+   */
+  async create(data: CreateArticleData): Promise<Article> {
+    // 生成 slug
+    const slug = data.slug || this.generateSlug(data.title.en)
+
+    // 生成 ID
+    const id = `art_${nanoid(12)}`
+
+    // 创建文章（JSON 字段序列化为字符串）
+    const article = await prisma.article.create({
+      data: {
+        id,
+        slug,
+        title: JSON.stringify(data.title),
+        summary: JSON.stringify(data.summary),
+        content: JSON.stringify(data.content),
+        domain: data.domain,
+        priority: data.priority || 'P1',
+        tags: JSON.stringify(data.tags || []),
+        keywords: JSON.stringify(data.keywords || []),
+        codeBlocks: JSON.stringify(data.codeBlocks || []),
+        metadata: JSON.stringify(data.metadata || this.defaultMetadata()),
+        qaPairs: JSON.stringify(data.qaPairs || []),
+        relatedIds: JSON.stringify(data.relatedIds || []),
+        createdBy: data.createdBy,
+      },
+    })
+
+    const result = this.transformArticle(article)
+
+    // 发布事件
+    await eventBus.emit<ArticleCreatedPayload>(
+      'article:created',
+      {
+        articleId: id,
+        domain: data.domain,
+        createdBy: data.createdBy,
+        status: 'draft',
+      },
+      {
+        aggregateId: id,
+        aggregateType: 'Article',
+        source: 'content-pipeline',
+      }
+    )
+
+    return result
+  }
+
+  /**
+   * 批量创建文章
+   */
+  async bulkCreate(items: CreateArticleData[]): Promise<Article[]> {
+    const results: Article[] = []
+
+    for (const item of items) {
+      try {
+        const article = await this.create(item)
+        results.push(article)
+      } catch (error) {
+        console.error('Failed to create article:', error)
+      }
+    }
+
+    return results
+  }
+
+  /**
+   * 更新文章
+   */
+  async update(id: string, data: UpdateArticleData): Promise<Article> {
+    // 构建更新数据（JSON 字段序列化为字符串）
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {}
+
+    if (data.title) updateData.title = JSON.stringify(data.title)
+    if (data.summary) updateData.summary = JSON.stringify(data.summary)
+    if (data.content) updateData.content = JSON.stringify(data.content)
+    if (data.domain) updateData.domain = data.domain
+    if (data.tags) updateData.tags = JSON.stringify(data.tags)
+    if (data.keywords) updateData.keywords = JSON.stringify(data.keywords)
+    if (data.codeBlocks) updateData.codeBlocks = JSON.stringify(data.codeBlocks)
+    if (data.metadata) updateData.metadata = JSON.stringify(data.metadata)
+    if (data.qaPairs) updateData.qaPairs = JSON.stringify(data.qaPairs)
+    if (data.relatedIds) updateData.relatedIds = JSON.stringify(data.relatedIds)
+
+    const article = await prisma.article.update({
+      where: { id },
+      data: updateData,
+    })
+
+    const result = this.transformArticle(article)
+
+    // 清除缓存
+    await this.invalidateCache(id, article.slug)
+
+    // 发布事件
+    const changes = Object.keys(data)
+    await eventBus.emit<ArticleUpdatedPayload>(
+      'article:updated',
+      {
+        articleId: id,
+        updatedBy: 'system',
+        changes,
+      },
+      {
+        aggregateId: id,
+        aggregateType: 'Article',
+        source: 'content-pipeline',
+      }
+    )
+
+    return result
+  }
+
+  /**
+   * 发布文章
+   */
+  async publish(id: string, publishedBy: string = 'system'): Promise<Article> {
+    const article = await prisma.article.update({
+      where: { id },
+      data: {
+        status: 'published',
+        publishedAt: new Date(),
+      },
+    })
+
+    const result = this.transformArticle(article)
+
+    // 清除缓存
+    await this.invalidateCache(id, article.slug)
+
+    // 发布事件
+    await eventBus.emit<ArticlePublishedPayload>(
+      'article:published',
+      {
+        articleId: id,
+        publishedAt: result.publishedAt!,
+        publishedBy,
+      },
+      {
+        aggregateId: id,
+        aggregateType: 'Article',
+        source: 'content-pipeline',
+      }
+    )
+
+    return result
+  }
+
+  /**
+   * 归档文章
+   */
+  async archive(id: string): Promise<Article> {
+    const article = await prisma.article.update({
+      where: { id },
+      data: { status: 'archived' },
+    })
+
+    const result = this.transformArticle(article)
+    await this.invalidateCache(id, article.slug)
+    return result
+  }
+
+  /**
+   * 标记文章失效
+   */
+  async deprecate(id: string, reason: string): Promise<Article> {
+    const article = await prisma.article.update({
+      where: { id },
+      data: {
+        status: 'deprecated',
+        deprecatedAt: new Date(),
+        deprecatedReason: reason,
+      },
+    })
+
+    const result = this.transformArticle(article)
+    await this.invalidateCache(id, article.slug)
+    return result
+  }
+
+  /**
+   * 删除文章
+   */
+  async delete(id: string): Promise<void> {
+    const article = await prisma.article.findUnique({
+      where: { id },
+      select: { slug: true },
+    })
+
+    // 先删除关联的验证记录
+    await prisma.verificationRecord.deleteMany({
+      where: { articleId: id },
+    })
+
+    await prisma.article.delete({ where: { id } })
+
+    if (article) {
+      await this.invalidateCache(id, article.slug)
+    }
+  }
+
+  /**
+   * 获取关联文章
+   */
+  async getRelated(id: string, limit: number = 5): Promise<Article[]> {
+    const article = await prisma.article.findUnique({
+      where: { id },
+      select: { relatedIds: true },
+    })
+
+    if (!article) {
+      return []
+    }
+
+    const relatedIds = this.parseJson<string[]>(article.relatedIds, [])
+    if (relatedIds.length === 0) {
+      return []
+    }
+
+    const limitedIds = relatedIds.slice(0, limit)
+    return this.findByIds(limitedIds)
+  }
+
+  // ============================================
+  // 私有方法
+  // ============================================
+
+  /**
+   * 生成 slug
+   */
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 100)
+  }
+
+  /**
+   * 默认元数据
+   */
+  private defaultMetadata(): ArticleMetadata {
+    return {
+      applicableVersions: [],
+      confidenceScore: 0,
+      riskLevel: 'low',
+      runtimeEnv: [],
+    }
+  }
+
+  /**
+   * 清除文章缓存
+   */
+  private async invalidateCache(id: string, slug: string): Promise<void> {
+    await Promise.all([
+      deleteCachePattern(CacheKeys.article(id)),
+      deleteCachePattern(CacheKeys.articleSlug(slug)),
+      deleteCachePattern(`render:*:${id}:*`),
+    ])
+  }
+
+  /**
+   * 安全解析 JSON
+   */
+  private parseJson<T>(value: string | null, defaultValue: T): T {
+    if (!value) return defaultValue
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return defaultValue
+    }
+  }
+
+  /**
+   * 转换数据库记录为 Article 类型
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private transformArticle(record: any): Article {
+    return {
+      id: record.id,
+      slug: record.slug,
+      title: this.parseJson<LocalizedString>(record.title, { zh: '', en: '' }),
+      summary: this.parseJson<LocalizedString>(record.summary, { zh: '', en: '' }),
+      content: this.parseJson<LocalizedString>(record.content, { zh: '', en: '' }),
+      domain: record.domain as ArticleDomain,
+      tags: this.parseJson<string[]>(record.tags, []),
+      keywords: this.parseJson<string[]>(record.keywords, []),
+      priority: record.priority as ArticlePriority || 'P1',
+      codeBlocks: this.parseJson<CodeBlock[]>(record.codeBlocks, []),
+      metadata: this.parseJson<ArticleMetadata>(record.metadata, this.defaultMetadata()),
+      qaPairs: this.parseJson<QAPair[]>(record.qaPairs, []),
+      relatedIds: this.parseJson<string[]>(record.relatedIds, []),
+      verificationStatus: record.verificationStatus as VerificationStatus,
+      verificationRecords: (record.verificationRecords || []).map((v: { id: string; articleId: string; verifierId: string; verifier?: { id: string; type: string; name: string }; result: string; environment: string; notes: string | null; verifiedAt: Date }) => ({
+        id: v.id,
+        articleId: v.articleId,
+        verifier: v.verifier ? {
+          id: v.verifier.id,
+          type: v.verifier.type as VerifierType,
+          name: v.verifier.name,
+        } : { id: v.verifierId, type: 'official_bot' as VerifierType, name: 'Unknown' },
+        result: v.result as 'passed' | 'failed' | 'partial',
+        environment: typeof v.environment === 'string' ? JSON.parse(v.environment) : v.environment,
+        notes: v.notes,
+        verifiedAt: v.verifiedAt?.toISOString?.() || v.verifiedAt,
+      })),
+      status: record.status as ArticleStatus,
+      createdBy: record.createdBy,
+      createdAt: record.createdAt?.toISOString?.() || record.createdAt,
+      updatedAt: record.updatedAt?.toISOString?.() || record.updatedAt,
+      publishedAt: record.publishedAt?.toISOString?.() || record.publishedAt,
+    }
+  }
+}
+
+// 导出单例
+export const articleService = new ArticleService()
