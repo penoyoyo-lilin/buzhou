@@ -1,7 +1,7 @@
 /**
  * 文章服务
  * 负责文章的 CRUD 操作、搜索、发布等业务逻辑
- * 适配 SQLite 数据库（JSON 字段使用字符串存储）
+ * 适配 PostgreSQL 数据库（JSON 字段使用原生 Json 类型）
  */
 
 import prisma from '@/core/db/client'
@@ -265,11 +265,11 @@ export class ArticleService {
         slug,
         title: JSON.stringify(data.title),
         summary: JSON.stringify(data.summary),
-        content: JSON.stringify(data.content),
-        domain: data.domain,
-        priority: data.priority || 'P1',
-        tags: JSON.stringify(data.tags || []),
-        keywords: JSON.stringify(data.keywords || []),
+content: JSON.stringify(data.content),
+domain: data.domain as any,
+priority: data.priority || 'P1',
+tags: JSON.stringify(data.tags || []),
+keywords: JSON.stringify(data.keywords || []),
         codeBlocks: JSON.stringify(data.codeBlocks || []),
         metadata: JSON.stringify(data.metadata || this.defaultMetadata()),
         qaPairs: JSON.stringify(data.qaPairs || []),
@@ -514,10 +514,13 @@ export class ArticleService {
   }
 
   /**
-   * 安全解析 JSON
+   * 安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
    */
-  private parseJson<T>(value: string | null, defaultValue: T): T {
+  private parseJson<T>(value: unknown, defaultValue: T): T {
     if (!value) return defaultValue
+    // PostgreSQL 的 Json 类型返回已解析的对象，直接返回
+    if (typeof value !== 'string') return value as T
+    // 如果是字符串（SQLite 兼容），尝试解析
     try {
       return JSON.parse(value) as T
     } catch {
@@ -554,7 +557,7 @@ export class ArticleService {
           name: v.verifier.name,
         } : { id: v.verifierId, type: 'official_bot' as VerifierType, name: 'Unknown' },
         result: v.result as 'passed' | 'failed' | 'partial',
-        environment: typeof v.environment === 'string' ? JSON.parse(v.environment) : v.environment,
+        environment: this.parseJson(v.environment, { os: '', runtime: '', version: '' }),
         notes: v.notes,
         verifiedAt: v.verifiedAt?.toISOString?.() || v.verifiedAt,
       })),
