@@ -28,7 +28,7 @@ const createArticleSchema = z.object({
     'foundation', 'transport',
     'tools-filesystem', 'tools-postgres', 'tools-github',
     'error-codes', 'scenarios',
-  ]),,
+  ]),
   priority: z.enum(['P0', 'P1']).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   tags: z.array(z.string()).optional(),
