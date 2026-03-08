@@ -11,8 +11,8 @@ const SearchSchema = z.object({
     'agent', 'mcp', 'skill',
     // MVP 内容分类
     'foundation', 'transport',
-    'tools-filesystem', 'tools-postgres', 'tools-github',
-    'error-codes', 'scenarios'
+    'tools_filesystem', 'tools_postgres', 'tools_github',
+    'error_codes', 'scenarios'
   ]).optional(),
   status: z.enum(['verified', 'partial', 'pending', 'failed', 'deprecated']).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -73,16 +73,16 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // 解析 JSON 字段并过滤搜索词
-    let results = articles.map((article) => ({
-      ...article,
-      title: JSON.parse(article.title),
-      summary: JSON.parse(article.summary),
-      tags: JSON.parse(article.tags),
-      metadata: JSON.parse(article.metadata),
-    }))
+   // PostgreSQL 的 Json 类型返回已解析的对象，无需 JSON.parse
+   let results = articles.map((article) => ({
+    ...article,
+    title: article.title ? (article.title as { zh: string; en: string }) : { zh: '', en: '' },
+    summary: article.summary ? (article.summary as { zh: string; en: string }) : { zh: '', en: '' },
+    tags: article.tags ? (article.tags as string[]) : [],
+    metadata: article.metadata ? (article.metadata as { confidenceScore?: number }) : {},
+  }))
 
-    // 如果有搜索词，在应用层过滤
+  // 如果有搜索词，在应用层过滤
     if (params.q) {
       const query = params.q.toLowerCase()
       results = results.filter((article) => {
