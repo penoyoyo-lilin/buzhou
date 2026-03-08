@@ -1,20 +1,10 @@
 {
-  "buildCommand": "prisma generate && next build",
-  "devCommand": "next dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
   "regions": ["sin1", "hnd1"],
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "X-Agent-API-Endpoint", "value": "https://buzhou.io/api/v1/resolve" },
+        { "key": "X-Agent-API-Endpoint", "value": "https://buzhou.io/api/v1/search" },
         { "key": "X-Agent-API-Docs", "value": "https://buzhou.io/api-docs" }
       ]
     }
