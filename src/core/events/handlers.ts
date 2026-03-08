@@ -88,7 +88,7 @@ export function registerArticleEventHandlers() {
               summary: a.summary ? (a.summary as { zh: string; en: string }) : { zh: '', en: '' },
               tags: a.tags ? (a.tags as string[]) : [],
               domain: a.domain,
-            })) as Pick[]
+            })) as any[]
             const result = await aiService.generateRelatedIds(article, parsedArticles)
             if (result.relatedIds.length > 0) {
               await articleService.update(articleId, {
