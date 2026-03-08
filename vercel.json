@@ -1,6 +1,4 @@
 {
-  "framework": "nextjs",
-  "regions": [],
   "headers": [
     {
       "source": "/api/(.*)",
