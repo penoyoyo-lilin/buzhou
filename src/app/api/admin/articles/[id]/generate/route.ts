@@ -102,9 +102,9 @@ export async function POST(
 
           const parsedArticles = allArticles.map((a) => ({
             id: a.id,
-            title: JSON.parse(a.title),
-            summary: JSON.parse(a.summary),
-            tags: JSON.parse(a.tags),
+            title: (a.title as { zh: string; en: string }) || { zh: '', en: '' },
+            summary: (a.summary as { zh: string; en: string }) || { zh: '', en: '' },
+            tags: (a.tags as string[]) || [],
             domain: a.domain as ArticleDomain,
           }))
 
