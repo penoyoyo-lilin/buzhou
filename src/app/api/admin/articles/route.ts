@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (domain) {
-      where.domain = domain
+      where.domain = domain as any
     }
 
     if (verificationStatus) {
