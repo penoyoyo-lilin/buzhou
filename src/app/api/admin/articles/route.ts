@@ -26,8 +26,8 @@ const createArticleSchema = z.object({
   domain: z.enum([
     'agent', 'mcp', 'skill',
     'foundation', 'transport',
-    'tools-filesystem', 'tools-postgres', 'tools-github',
-    'error-codes', 'scenarios',
+    'tools_filesystem', 'tools_postgres', 'tools_github',
+    'error_codes', 'scenarios',
   ]),
   priority: z.enum(['P0', 'P1']).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
