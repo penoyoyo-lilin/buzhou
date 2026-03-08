@@ -81,14 +81,14 @@ export function registerArticleEventHandlers() {
               },
             })
 
+            // PostgreSQL 的 Json 类型返回已解析的对象，无需 JSON.parse
             const parsedArticles = allArticles.map((a) => ({
               id: a.id,
-              title: JSON.parse(a.title),
-              summary: JSON.parse(a.summary),
-              tags: JSON.parse(a.tags),
+              title: a.title ? (a.title as { zh: string; en: string }) : { zh: '', en: '' },
+              summary: a.summary ? (a.summary as { zh: string; en: string }) : { zh: '', en: '' },
+              tags: a.tags ? (a.tags as string[]) : [],
               domain: a.domain,
-            })) as Pick<Article, 'id' | 'title' | 'summary' | 'tags' | 'domain'>[]
-
+            })) as Pick[]
             const result = await aiService.generateRelatedIds(article, parsedArticles)
             if (result.relatedIds.length > 0) {
               await articleService.update(articleId, {
@@ -181,11 +181,12 @@ export function registerArticleEventHandlers() {
               },
             })
 
+            // PostgreSQL 的 Json 类型返回已解析的对象，无需 JSON.parse
             const parsedArticles = allArticles.map((a) => ({
               id: a.id,
-              title: JSON.parse(a.title),
-              summary: JSON.parse(a.summary),
-              tags: JSON.parse(a.tags),
+              title: a.title as { zh: string; en: string },
+              summary: a.summary as { zh: string; en: string },
+              tags: a.tags as string[],
               domain: a.domain,
             })) as Pick<Article, 'id' | 'title' | 'summary' | 'tags' | 'domain'>[]
 
