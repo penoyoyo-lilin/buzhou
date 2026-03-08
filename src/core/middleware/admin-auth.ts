@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/core/db/client'
 
 /**
  * 验证管理员认证（用于 API 路由）
+ * 注意：此函数只能在 Node.js Runtime 中使用，不能在 Middleware 中使用
  */
 export async function verifyAdminAuth(request: NextRequest): Promise<{ id: string; email: string; role: string } | null> {
+  // 动态导入 Prisma，避免在 Edge Runtime 中加载
+  const { default: prisma } = await import('@/core/db/client')
+
   const sessionToken = request.cookies.get('admin_session')?.value
 
   if (!sessionToken) {
