@@ -9,6 +9,17 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import prisma from '@/core/db/client'
 import { z } from 'zod'
 
+// 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
+function parseJsonField<T>(value: unknown, defaultValue: T): T {
+  if (!value) return defaultValue
+  if (typeof value !== 'string') return value as T
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return defaultValue
+  }
+}
+
 // 查询参数验证
 const analyticsQuerySchema = z.object({
   // 时间范围
@@ -344,8 +355,8 @@ async function getArticleStats(startDate: Date, endDate: Date) {
 
   const tagCounts = new Map<string, number>()
   allArticles.forEach((article) => {
-    // PostgreSQL 的 Json 类型返回已解析的对象
-    const tags = Array.isArray(article.tags) ? (article.tags as string[]) : []
+    // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
+    const tags = parseJsonField<string[]>(article.tags, [])
     tags.forEach((tag) => {
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
     })

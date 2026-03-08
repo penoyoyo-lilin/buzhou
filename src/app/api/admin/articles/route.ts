@@ -8,6 +8,17 @@ import { verificationService, CreateVerificationData } from '@/services/verifica
 import { eventBus } from '@/core/events'
 import { z } from 'zod'
 
+// 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
+function parseJsonField<T>(value: unknown, defaultValue: T): T {
+  if (!value) return defaultValue
+  if (typeof value !== 'string') return value as T
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return defaultValue
+  }
+}
+
 // 创建文章请求验证
 const createArticleSchema = z.object({
   slug: z.string().optional(),
@@ -122,11 +133,11 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // PostgreSQL 的 Json 类型返回已解析的对象
+    // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
     const items = articles.map(article => ({
       ...article,
-      title: article.title as { zh: string; en: string },
-      tags: article.tags as string[],
+      title: parseJsonField(article.title, { zh: '', en: '' }),
+      tags: parseJsonField(article.tags, [] as string[]),
     }))
 
     return NextResponse.json(

@@ -258,22 +258,22 @@ export class ArticleService {
     // 生成 ID
     const id = `art_${nanoid(12)}`
 
-    // 创建文章（JSON 字段序列化为字符串）
+    // 创建文章（PostgreSQL Json 类型直接传递对象，需要类型断言）
     const article = await prisma.article.create({
       data: {
         id,
         slug,
-        title: JSON.stringify(data.title),
-        summary: JSON.stringify(data.summary),
-content: JSON.stringify(data.content),
-domain: data.domain as any,
-priority: data.priority || 'P1',
-tags: JSON.stringify(data.tags || []),
-keywords: JSON.stringify(data.keywords || []),
-        codeBlocks: JSON.stringify(data.codeBlocks || []),
-        metadata: JSON.stringify(data.metadata || this.defaultMetadata()),
-        qaPairs: JSON.stringify(data.qaPairs || []),
-        relatedIds: JSON.stringify(data.relatedIds || []),
+        title: data.title as any,
+        summary: data.summary as any,
+        content: data.content as any,
+        domain: data.domain as any,
+        priority: data.priority || 'P1',
+        tags: (data.tags || []) as any,
+        keywords: (data.keywords || []) as any,
+        codeBlocks: (data.codeBlocks || []) as any,
+        metadata: (data.metadata || this.defaultMetadata()) as any,
+        qaPairs: (data.qaPairs || []) as any,
+        relatedIds: (data.relatedIds || []) as any,
         createdBy: data.createdBy,
       },
     })
@@ -321,20 +321,20 @@ keywords: JSON.stringify(data.keywords || []),
    * 更新文章
    */
   async update(id: string, data: UpdateArticleData): Promise<Article> {
-    // 构建更新数据（JSON 字段序列化为字符串）
+    // 构建更新数据（PostgreSQL Json 类型直接传递对象）
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {}
 
-    if (data.title) updateData.title = JSON.stringify(data.title)
-    if (data.summary) updateData.summary = JSON.stringify(data.summary)
-    if (data.content) updateData.content = JSON.stringify(data.content)
+    if (data.title) updateData.title = data.title
+    if (data.summary) updateData.summary = data.summary
+    if (data.content) updateData.content = data.content
     if (data.domain) updateData.domain = data.domain
-    if (data.tags) updateData.tags = JSON.stringify(data.tags)
-    if (data.keywords) updateData.keywords = JSON.stringify(data.keywords)
-    if (data.codeBlocks) updateData.codeBlocks = JSON.stringify(data.codeBlocks)
-    if (data.metadata) updateData.metadata = JSON.stringify(data.metadata)
-    if (data.qaPairs) updateData.qaPairs = JSON.stringify(data.qaPairs)
-    if (data.relatedIds) updateData.relatedIds = JSON.stringify(data.relatedIds)
+    if (data.tags) updateData.tags = data.tags
+    if (data.keywords) updateData.keywords = data.keywords
+    if (data.codeBlocks) updateData.codeBlocks = data.codeBlocks
+    if (data.metadata) updateData.metadata = data.metadata
+    if (data.qaPairs) updateData.qaPairs = data.qaPairs
+    if (data.relatedIds) updateData.relatedIds = data.relatedIds
 
     const article = await prisma.article.update({
       where: { id },

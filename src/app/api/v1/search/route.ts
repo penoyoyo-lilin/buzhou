@@ -73,13 +73,26 @@ export async function GET(request: NextRequest) {
       },
     })
 
-   // PostgreSQL 的 Json 类型返回已解析的对象，无需 JSON.parse
+   // 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
+  const parseJsonField = <T>(value: unknown, defaultValue: T): T => {
+    if (!value) return defaultValue
+    // PostgreSQL 的 Json 类型返回已解析的对象
+    if (typeof value !== 'string') return value as T
+    // SQLite 存储为 JSON 字符串，需要解析
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return defaultValue
+    }
+  }
+
+   // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
    let results = articles.map((article) => ({
     ...article,
-    title: article.title ? (article.title as { zh: string; en: string }) : { zh: '', en: '' },
-    summary: article.summary ? (article.summary as { zh: string; en: string }) : { zh: '', en: '' },
-    tags: article.tags ? (article.tags as string[]) : [],
-    metadata: article.metadata ? (article.metadata as { confidenceScore?: number }) : {},
+    title: parseJsonField(article.title, { zh: '', en: '' }),
+    summary: parseJsonField(article.summary, { zh: '', en: '' }),
+    tags: parseJsonField(article.tags, [] as string[]),
+    metadata: parseJsonField(article.metadata, {}),
   }))
 
   // 如果有搜索词，在应用层过滤

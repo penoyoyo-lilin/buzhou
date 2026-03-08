@@ -45,7 +45,25 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(successResponse(verifier))
+    // 解析 JSON 字段
+    const parsedVerifier = {
+      ...verifier,
+      credentials: verifier.credentials
+        ? (verifier.credentials as { publicKey?: string; verified?: boolean; certificateUrl?: string })
+        : {},
+      reputation: {
+        score: verifier.reputationScore,
+        level: verifier.reputationLevel,
+      },
+      stats: {
+        totalVerifications: verifier.totalVerifications,
+        passedCount: verifier.passedCount,
+        failedCount: verifier.failedCount,
+        partialCount: verifier.partialCount,
+      },
+    }
+
+    return NextResponse.json(successResponse(parsedVerifier))
   } catch (error) {
     console.error('Get verifier error:', error)
     return NextResponse.json(

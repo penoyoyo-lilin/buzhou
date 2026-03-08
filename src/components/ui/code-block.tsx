@@ -88,7 +88,7 @@ function CodeBlock({
               ))}
             </code>
           ) : (
-            <code className={`language-${language}`}>
+            <code className={`language-${language} whitespace-pre`}>
               {code}
             </code>
           )}

@@ -62,13 +62,13 @@ export class VerificationService {
       throw new Error(`Verifier not found: ${data.verifierId}`)
     }
 
-    // 创建验证记录（JSON 字段序列化为字符串）
+    // 创建验证记录（PostgreSQL Json 类型直接传递对象）
     const record = await prisma.verificationRecord.create({
       data: {
         articleId: data.articleId,
         verifierId: data.verifierId,
         result: data.result,
-        environment: JSON.stringify(data.environment),
+        environment: data.environment,
         notes: data.notes || null,
       },
       include: {

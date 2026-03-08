@@ -18,3 +18,53 @@
 16. **AI 生成去重检查**：事件处理器在执行 AI 生成任务前，应检查目标字段是否已有内容，避免重复生成浪费资源或覆盖已有数据。
 17. **事件处理器日志格式**：使用统一的日志前缀如 `[ArticleEventHandler]` 并包含关键 ID（如 articleId），便于在服务器控制台追踪异步任务执行情况。
 18. **Next.js 缓存问题预防**：重启服务器用npm run dev:clean
+
+19. **Supabase + Vercel Serverless 数据库连接**：
+    - Supabase 连接池（端口 6543）必须在 URL 中添加 `?pgbouncer=true` 参数
+    - Prisma schema 的 `directUrl` 必须配置，可以让它指向同一个 `DATABASE_URL`
+    - 直接连接（端口 5432）在 Vercel Serverless 环境中不稳定，应使用连接池
+
+20. **Vercel Serverless 文件系统只读**：
+    - ❌ 禁止使用 `fs.writeFileSync()` 等文件写入操作
+    - ✅ 配置和动态数据应存储到数据库中
+    - 环境变量应通过 Vercel 控制台配置，不能通过代码修改
+
+21. **执行 Prisma 数据库命令**：
+    - 必须在项目根目录 `/Users/lilin/project/buzhou` 下执行
+    - 推送 schema 变更：`DATABASE_URL="..." npx prisma db push`
+    - 连接生产数据库时使用完整的 URL（包含 pgbouncer=true）
+
+22. **Prisma Schema 变更后必须重新生成客户端**：
+    - 修改 `prisma/schema.prisma` 后必须运行 `npx prisma generate`
+    - 否则会出现 `Property 'xxx' does not exist on type 'PrismaClient'` 错误
+    - 在 Vercel 部署时会自动执行，本地开发需手动执行
+
+23. **PostgreSQL 枚举类型操作**：
+    - 比较枚举字段时需要类型转换：`WHERE domain::text = 'old-value'`
+    - 更新枚举字段时需要类型转换：`SET domain = 'new-value'::"ArticleDomain"`
+    - 添加新枚举值必须先执行：`ALTER TYPE "EnumName" ADD VALUE IF NOT EXISTS 'new_value'`
+    - 使用 `$executeRawUnsafe` 执行包含枚举值的 SQL
+
+24. **项目根目录执行命令**：
+    - 本项目根目录为 `/Users/lilin/project/buzhou`
+    - 执行 npm/npx 命令时使用 `npm --prefix /Users/lilin/project/buzhou`
+    - 执行 git 命令时使用 `git -C /Users/lilin/project/buzhou`
+    - 或使用 `cd /Users/lilin/project/buzhou && command`
+
+25. **枚举命名使用下划线而非连字符**：
+    - 数据库枚举值和代码中统一使用下划线：`tools_filesystem`
+    - 避免使用连字符：`tools-filesystem`（会导致 Prisma 类型问题）
+    - 如发现不一致数据，需编写迁移脚本修复
+
+27. **服务器启动失败排查流程**：
+    - 首先检查端口状态：`lsof -i :3000`
+    - 立即查看日志：`tail -30 /tmp/next-dev.log`
+    - 根据日志错误信息针对性修复，而非盲目重试
+    - 常见错误：目录不对（ENOENT）、端口占用、环境变量缺失
+
+28. **命令执行失败后禁止盲目重试**：
+    - 失败后必须先查看错误日志或输出
+    - 分析根本原因后再执行修复操作
+    - 连续2次相同失败应停下来检查环境配置
+
+

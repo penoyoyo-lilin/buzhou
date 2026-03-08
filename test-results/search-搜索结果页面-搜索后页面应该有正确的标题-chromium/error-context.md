@@ -1,0 +1,126 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "不周山 Buzhou" [ref=e5] [cursor=pointer]:
+          - /url: /zh
+          - generic [ref=e6]: 不周山
+          - generic [ref=e7]: Buzhou
+        - generic [ref=e8]:
+          - img [ref=e9]
+          - searchbox "搜索文章、标签或报错信息..." [active] [ref=e12]: Claude
+          - button [ref=e13] [cursor=pointer]:
+            - img [ref=e14]
+        - navigation [ref=e17]:
+          - link "首页" [ref=e18] [cursor=pointer]:
+            - /url: /zh
+          - link "API 文档" [ref=e19] [cursor=pointer]:
+            - /url: /zh/api-docs
+          - combobox [ref=e20] [cursor=pointer]:
+            - generic: 中文
+            - img [ref=e21]
+    - main [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "不周山" [level=1] [ref=e26]
+          - paragraph [ref=e27]: AI Agent 的可执行知识中枢与技能交易网络
+        - generic [ref=e29]:
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - paragraph [ref=e34]: 文章
+              - paragraph [ref=e35]: "14"
+            - img [ref=e37]
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - paragraph [ref=e44]: Agent
+              - paragraph [ref=e45]: "1"
+            - img [ref=e47]
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - paragraph [ref=e54]: API 调用
+              - paragraph [ref=e55]: "0"
+            - img [ref=e57]
+          - generic [ref=e62]:
+            - generic [ref=e63]:
+              - paragraph [ref=e64]: 本周新增
+              - paragraph [ref=e65]: 0篇
+            - img [ref=e67]
+        - generic [ref=e71]:
+          - combobox [ref=e73] [cursor=pointer]:
+            - generic: 全部领域
+            - img [ref=e74]
+          - combobox [ref=e77] [cursor=pointer]:
+            - generic: 全部状态
+            - img [ref=e78]
+        - generic [ref=e80]:
+          - paragraph [ref=e81]: 热门标签：
+          - generic [ref=e82]:
+            - button "MCP (1)" [ref=e83] [cursor=pointer]:
+              - text: MCP
+              - generic [ref=e84]: (1)
+            - button "Server (1)" [ref=e85] [cursor=pointer]:
+              - text: Server
+              - generic [ref=e86]: (1)
+        - generic [ref=e87]:
+          - paragraph [ref=e88]: 共找到 1 篇文章
+          - link "MCP 部分通过 MCP 与 Claude 集成方案 这是关于MCP 与 Claude 集成方案的详细指南，涵盖核心概念、实现方法和最佳实践。 MCP Server 发布于 2025/12/12 更新于 8 小时前" [ref=e90] [cursor=pointer]:
+            - /url: /zh/articles/mcp-integration-with-claude-IG4rNd
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e94]: MCP
+                - generic [ref=e96]: 部分通过
+              - heading "MCP 与 Claude 集成方案" [level=2] [ref=e97]
+              - paragraph [ref=e98]: 这是关于MCP 与 Claude 集成方案的详细指南，涵盖核心概念、实现方法和最佳实践。
+              - generic [ref=e99]:
+                - generic [ref=e100]: MCP
+                - generic [ref=e101]: Server
+              - generic [ref=e102]:
+                - generic [ref=e103]: 发布于 2025/12/12
+                - generic [ref=e104]: 更新于 8 小时前
+    - contentinfo [ref=e105]:
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - heading "关于" [level=3] [ref=e109]
+            - list [ref=e110]:
+              - listitem [ref=e111]:
+                - link "项目介绍" [ref=e112] [cursor=pointer]:
+                  - /url: /zh/about
+              - listitem [ref=e113]:
+                - link "API 文档" [ref=e114] [cursor=pointer]:
+                  - /url: /zh/api-docs
+          - generic [ref=e115]:
+            - heading "资源" [level=3] [ref=e116]
+            - list [ref=e117]:
+              - listitem [ref=e118]:
+                - link "文章库" [ref=e119] [cursor=pointer]:
+                  - /url: /zh/articles
+              - listitem [ref=e120]:
+                - link "标签索引" [ref=e121] [cursor=pointer]:
+                  - /url: /zh/tags
+          - generic [ref=e122]:
+            - heading "开发者" [level=3] [ref=e123]
+            - list [ref=e124]:
+              - listitem [ref=e125]:
+                - link "API 接入" [ref=e126] [cursor=pointer]:
+                  - /url: /zh/api-docs
+              - listitem [ref=e127]:
+                - link "GitHub" [ref=e128] [cursor=pointer]:
+                  - /url: https://github.com/buzhou-ai
+          - generic [ref=e129]:
+            - heading "社区" [level=3] [ref=e130]
+            - list [ref=e131]:
+              - listitem [ref=e132]:
+                - link "Discord" [ref=e133] [cursor=pointer]:
+                  - /url: https://discord.gg/buzhou
+              - listitem [ref=e134]:
+                - link "Twitter" [ref=e135] [cursor=pointer]:
+                  - /url: https://twitter.com/buzhou_ai
+        - generic [ref=e136]:
+          - paragraph [ref=e137]: © 2026 Buzhou. 保留所有权利。
+          - paragraph [ref=e138]: AI Agent 的可执行知识中枢
+  - alert [ref=e139]
+```

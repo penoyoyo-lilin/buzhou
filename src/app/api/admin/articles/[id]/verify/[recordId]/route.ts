@@ -59,7 +59,7 @@ export async function PUT(
       updateData.result = validated.data.result
     }
     if (validated.data.environment) {
-      updateData.environment = JSON.stringify(validated.data.environment)
+      updateData.environment = validated.data.environment
     }
     if (validated.data.notes !== undefined) {
       updateData.notes = validated.data.notes

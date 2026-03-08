@@ -278,7 +278,7 @@ describe('ArticleService', () => {
       await articleService.create(dataWithTags)
 
       const createCall = vi.mocked(prisma.article.create).mock.calls[0][0]
-      expect(JSON.parse(createCall.data.tags as string)).toEqual(['Claude', 'SDK', 'Tutorial'])
+      expect(createCall.data.tags).toEqual(['Claude', 'SDK', 'Tutorial'])
     })
 
     it('should create article with code blocks', async () => {
@@ -300,7 +300,7 @@ describe('ArticleService', () => {
       await articleService.create(dataWithCodeBlocks)
 
       const createCall = vi.mocked(prisma.article.create).mock.calls[0][0]
-      const codeBlocks = JSON.parse(createCall.data.codeBlocks as string)
+      const codeBlocks = createCall.data.codeBlocks as Array<{ language: string }>
       expect(codeBlocks).toHaveLength(1)
       expect(codeBlocks[0].language).toBe('typescript')
     })
@@ -321,7 +321,7 @@ describe('ArticleService', () => {
       await articleService.create(dataWithMetadata)
 
       const createCall = vi.mocked(prisma.article.create).mock.calls[0][0]
-      const metadata = JSON.parse(createCall.data.metadata as string)
+      const metadata = createCall.data.metadata as { confidenceScore: number }
       expect(metadata.confidenceScore).toBe(85)
     })
   })
@@ -343,8 +343,8 @@ describe('ArticleService', () => {
       expect(prisma.article.update).toHaveBeenCalledWith({
         where: { id: 'art_test123' },
         data: expect.objectContaining({
-          title: JSON.stringify(updateData.title),
-          tags: JSON.stringify(updateData.tags),
+          title: updateData.title,
+          tags: updateData.tags,
         }),
       })
     })
@@ -384,7 +384,7 @@ describe('ArticleService', () => {
 
       const updateCall = vi.mocked(prisma.article.update).mock.calls[0][0]
       expect(updateCall.data.title).toBeUndefined()
-      expect(updateCall.data.tags).toBe(JSON.stringify(['only-tags']))
+      expect(updateCall.data.tags).toEqual(["only-tags"])
     })
 
     it('should throw error when article not found', async () => {

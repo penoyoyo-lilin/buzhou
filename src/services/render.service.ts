@@ -39,20 +39,60 @@ export interface RenderedContent {
 }
 
 export interface ArticleJsonResponse {
+  // 基本信息
   id: string
   slug: string
-  title: { zh: string; en: string }
-  summary: { zh: string; en: string }
-  content: { zh: string; en: string }
+  title: string
+  summary: string
+  content: string
+  lang: 'zh' | 'en'
+
+  // 分类和标签
   domain: string
   tags: string[]
   keywords: string[]
-  codeBlocks: CodeBlock[]
-  metadata: unknown
-  qaPairs: QAPair[]
+
+  // 验证和元数据
   verificationStatus: string
+  confidenceScore: number
+  riskLevel: string
+  applicableVersions: string[]
+  runtimeEnv: Array<{ name: string; version: string }>
+
+  // 代码和 QA
+  codeBlocks: Array<{
+    id: string
+    language: string
+    filename: string | null
+    content: string
+    description: string
+  }>
+  qaPairs: Array<{
+    id: string
+    question: string
+    answer: string
+  }>
+
+  // 验证记录
   verificationRecords: unknown[]
+
+  // 相关文章
   relatedIds: string[]
+
+  // 时间信息
+  publishedAt: string | null
+  updatedAt: string
+  createdAt: string
+
+  // API 接入引导
+  apiAccess: {
+    endpoints: {
+      search: string
+      json: string
+      markdown: string
+    }
+    exampleUsage: string
+  }
 }
 
 // ============================================
@@ -253,6 +293,13 @@ export class RenderService {
     if (article.metadata.applicableVersions.length > 0) {
       markdown += `- **Applicable Versions:** ${article.metadata.applicableVersions.join(', ')}\n`
     }
+    if (article.metadata.runtimeEnv && article.metadata.runtimeEnv.length > 0) {
+      markdown += `- **Runtime Environment:** ${article.metadata.runtimeEnv.map(e => `${e.name} ${e.version}`).join(', ')}\n`
+    }
+    // 时间信息
+    markdown += `- **Published At:** ${article.publishedAt || 'N/A'}\n`
+    markdown += `- **Updated At:** ${article.updatedAt}\n`
+    markdown += `- **Created At:** ${article.createdAt}\n`
 
     // 验证记录
     if (article.verificationRecords && article.verificationRecords.length > 0) {
@@ -273,6 +320,24 @@ export class RenderService {
       markdown += `Related article IDs: ${article.relatedIds.join(', ')}\n`
     }
 
+    // API 接入引导
+    markdown += `\n---\n\n`
+    markdown += `## API Access\n\n`
+    markdown += `### Endpoints\n\n`
+    markdown += `| Format | Endpoint |\n`
+    markdown += `|--------|----------|\n`
+    markdown += `| JSON | \`/api/v1/articles/${article.slug}?format=json\` |\n`
+    markdown += `| Markdown | \`/api/v1/articles/${article.slug}?format=markdown\` |\n`
+    markdown += `| Search | \`/api/v1/search?slug=${article.slug}\` |\n`
+    markdown += `\n### Example Usage\n\n`
+    markdown += `\`\`\`bash\n`
+    markdown += `# Get this article in JSON format\n`
+    markdown += `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=json"\n`
+    markdown += `\n`
+    markdown += `# Get this article in Markdown format\n`
+    markdown += `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=markdown"\n`
+    markdown += `\`\`\`\n`
+
     return markdown
   }
 
@@ -280,21 +345,72 @@ export class RenderService {
    * 转换为 JSON（公开方法）
    */
   toJsonResponse(article: Article, lang: 'zh' | 'en'): string {
+    // 根据语言选择内容
+    const title = lang === 'zh' ? article.title.zh : article.title.en
+    const summary = lang === 'zh' ? article.summary.zh : article.summary.en
+    const content = lang === 'zh' ? article.content.zh : article.content.en
+
+    // 转换代码块为语言特定格式
+    const codeBlocks = article.codeBlocks.map(block => ({
+      id: block.id,
+      language: block.language,
+      filename: block.filename,
+      content: block.content,
+      description: lang === 'zh' ? block.description.zh : block.description.en,
+    }))
+
+    // 转换 QA 对为语言特定格式
+    const qaPairs = article.qaPairs.map(qa => ({
+      id: qa.id,
+      question: lang === 'zh' ? qa.question.zh : qa.question.en,
+      answer: lang === 'zh' ? qa.answer.zh : qa.answer.en,
+    }))
+
     const response: ArticleJsonResponse = {
+      // 基本信息
       id: article.id,
       slug: article.slug,
-      title: article.title,
-      summary: article.summary,
-      content: article.content,
+      title,
+      summary,
+      content,
+      lang,
+
+      // 分类和标签
       domain: article.domain,
       tags: article.tags,
       keywords: article.keywords,
-      codeBlocks: article.codeBlocks,
-      metadata: article.metadata,
-      qaPairs: article.qaPairs,
+
+      // 验证和元数据
       verificationStatus: article.verificationStatus,
+      confidenceScore: article.metadata.confidenceScore,
+      riskLevel: article.metadata.riskLevel,
+      applicableVersions: article.metadata.applicableVersions,
+      runtimeEnv: article.metadata.runtimeEnv,
+
+      // 代码和 QA
+      codeBlocks,
+      qaPairs,
+
+      // 验证记录
       verificationRecords: article.verificationRecords,
+
+      // 相关文章
       relatedIds: article.relatedIds,
+
+      // 时间信息
+      publishedAt: article.publishedAt,
+      updatedAt: article.updatedAt,
+      createdAt: article.createdAt,
+
+      // API 接入引导
+      apiAccess: {
+        endpoints: {
+          search: `/api/v1/search?slug=${article.slug}`,
+          json: `/api/v1/articles/${article.slug}?format=json&lang=${lang}`,
+          markdown: `/api/v1/articles/${article.slug}?format=markdown&lang=${lang}`,
+        },
+        exampleUsage: `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=json&lang=${lang}"`,
+      },
     }
 
     return JSON.stringify(response, null, 2)

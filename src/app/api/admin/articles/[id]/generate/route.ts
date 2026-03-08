@@ -6,6 +6,17 @@ import prisma from '@/core/db/client'
 import { z } from 'zod'
 import type { ArticleDomain } from '@/types'
 
+// 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
+function parseJsonField<T>(value: unknown, defaultValue: T): T {
+  if (!value) return defaultValue
+  if (typeof value !== 'string') return value as T
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return defaultValue
+  }
+}
+
 // 请求验证 schema
 const generateSchema = z.object({
   types: z.array(z.enum(['qa', 'keywords', 'related'])).min(1),
@@ -102,9 +113,9 @@ export async function POST(
 
           const parsedArticles = allArticles.map((a) => ({
             id: a.id,
-            title: (a.title as { zh: string; en: string }) || { zh: '', en: '' },
-            summary: (a.summary as { zh: string; en: string }) || { zh: '', en: '' },
-            tags: (a.tags as string[]) || [],
+            title: parseJsonField(a.title, { zh: '', en: '' }),
+            summary: parseJsonField(a.summary, { zh: '', en: '' }),
+            tags: parseJsonField(a.tags, [] as string[]),
             domain: a.domain as ArticleDomain,
           }))
 

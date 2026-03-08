@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         type,
         name,
         description: description || '',
-        credentials: JSON.stringify({ verified: false }),
+        credentials: { verified: false },
         reputationScore: 0,
         reputationLevel: 'beginner',
         totalVerifications: 0,

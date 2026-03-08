@@ -39,6 +39,20 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   const [popularTags, setPopularTags] = useState<TagCount[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // 记录页面访问
+  useEffect(() => {
+    fetch('/api/v1/pageview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: window.location.pathname,
+        referrer: document.referrer,
+      }),
+    }).catch(() => {
+      // 静默失败
+    })
+  }, [])
+
   // 同步 URL 参数到 searchQuery
   useEffect(() => {
     const q = searchParams.get('q') || ''

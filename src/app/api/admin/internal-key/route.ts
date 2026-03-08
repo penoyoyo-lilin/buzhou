@@ -84,23 +84,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { confirmation } = body
-
-    // 获取当前 Key
-    let currentKey = await getStoredApiKey()
-    if (!currentKey) {
-      currentKey = process.env.INTERNAL_API_KEY || null
-    }
-
-    // 安全确认：需要输入当前 Key 的前几位
-    if (currentKey && confirmation !== currentKey.substring(0, 8)) {
-      return NextResponse.json(
-        errorResponse(ErrorCodes.VALIDATION_ERROR, '确认码不正确'),
-        { status: 400 }
-      )
-    }
-
     // 生成新的 API Key
     const newKey = generateApiKey()
 
