@@ -118,10 +118,10 @@ export async function GET(request: NextRequest) {
       summary: article.summary,
       domain: article.domain,
       tags: article.tags,
-      verificationStatus: article.verificationStatus,
-      confidenceScore: article.metadata?.confidenceScore || 0,
-      createdAt: article.createdAt.toISOString(),
-      updatedAt: article.updatedAt.toISOString(),
+verificationStatus: article.verificationStatus,
+confidenceScore: (article.metadata as any)?.confidenceScore || 0,
+createdAt: article.createdAt.toISOString(),
+updatedAt: article.updatedAt.toISOString(),
     }))
 
     const totalPages = Math.ceil(total / params.pageSize)
