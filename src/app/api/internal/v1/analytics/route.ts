@@ -344,14 +344,11 @@ async function getArticleStats(startDate: Date, endDate: Date) {
 
   const tagCounts = new Map<string, number>()
   allArticles.forEach((article) => {
-    try {
-      const tags = JSON.parse(article.tags) as string[]
-      tags.forEach((tag) => {
-        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
-      })
-    } catch {
-      // 忽略解析错误
-    }
+    // PostgreSQL 的 Json 类型返回已解析的对象
+    const tags = Array.isArray(article.tags) ? (article.tags as string[]) : []
+    tags.forEach((tag) => {
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+    })
   })
 
   const topTags = Array.from(tagCounts.entries())
