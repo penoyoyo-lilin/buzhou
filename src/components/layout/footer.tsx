@@ -54,6 +54,11 @@ export function Footer({ lang = 'zh', footerLinks }: FooterProps) {
     ? footerLinks
     : defaultFooterLinks
 
+  // 检查 URL 是否为外部链接（以 http:// 或 https:// 开头）
+  const isExternalUrl = (url: string): boolean => {
+    return url.startsWith('http://') || url.startsWith('https://')
+  }
+
   return (
     <footer className="border-t py-8 md:py-12">
       <div className="container">
@@ -64,27 +69,32 @@ export function Footer({ lang = 'zh', footerLinks }: FooterProps) {
                 {categoryNames[category]?.[lang] || category}
               </h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    {item.isExternal ? (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-foreground transition-colors"
-                      >
-                        {lang === 'zh' ? item.labelZh : item.labelEn}
-                      </a>
-                    ) : (
-                      <Link
-                        href={`/${lang}${item.url}`}
-                        className="hover:text-foreground transition-colors"
-                      >
-                        {lang === 'zh' ? item.labelZh : item.labelEn}
-                      </Link>
-                    )}
-                  </li>
-                ))}
+                {items.map((item) => {
+                  // 自动检测是否为外部链接
+                  const external = item.isExternal || isExternalUrl(item.url)
+
+                  return (
+                    <li key={item.id}>
+                      {external ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-foreground transition-colors"
+                        >
+                          {lang === 'zh' ? item.labelZh : item.labelEn}
+                        </a>
+                      ) : (
+                        <Link
+                          href={`/${lang}${item.url}`}
+                          className="hover:text-foreground transition-colors"
+                        >
+                          {lang === 'zh' ? item.labelZh : item.labelEn}
+                        </Link>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}
