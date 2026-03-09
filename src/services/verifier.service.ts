@@ -1,7 +1,7 @@
 /**
- * 验证人服务
- * 负责验证人的管理和信誉系统
- * 适配 SQLite 数据库（JSON 字段使用字符串存储）
+验证人服务
+负责验证人的管理和信誉系统
+适配 SQLite 数据库（JSON 字段使用字符串存储）
  */
 
 import prisma from '@/core/db/client'
@@ -68,11 +68,11 @@ export interface Verifier {
 
 export class VerifierService {
   /**
-   * 按 ID 查询验证人
+按 ID 查询验证人
    */
   async findById(id: number): Promise<Verifier | null> {
     const cacheKey = CacheKeys.verifier(String(id))
-    const cached = await getCache<Verifier>(cacheKey)
+    const cached = await getCache(cacheKey)
     if (cached) return cached
 
     const verifier = await prisma.verifier.findUnique({
@@ -87,7 +87,7 @@ export class VerifierService {
   }
 
   /**
-   * 按类型查询验证人
+按类型查询验证人
    */
   async findByType(type: VerifierType): Promise<Verifier[]> {
     const verifiers = await prisma.verifier.findMany({
@@ -99,7 +99,7 @@ export class VerifierService {
   }
 
   /**
-   * 列表查询
+列表查询
    */
   async list(params?: {
     type?: VerifierType
@@ -131,9 +131,9 @@ export class VerifierService {
   }
 
   /**
-   * 创建验证人
+创建验证人
    */
-  async create(data: CreateVerifierData): Promise {
+  async create(data: CreateVerifierData): Promise<Verifier> {
     const verifier = await prisma.verifier.create({
       data: {
         type: data.type,
@@ -146,7 +146,7 @@ export class VerifierService {
     const result = this.transformVerifier(verifier)
 
     // 发布事件
-    await eventBus.emit<VerifierRegisteredPayload>(
+    await eventBus.emit(
       'verifier:registered',
       {
         verifierId: verifier.id,
@@ -164,7 +164,7 @@ export class VerifierService {
   }
 
   /**
-   * 更新验证人
+更新验证人
    */
   async update(id: number, data: UpdateVerifierData): Promise<Verifier> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,7 +189,7 @@ export class VerifierService {
   }
 
   /**
-   * 更新信誉分数
+更新信誉分数
    */
   async updateReputation(
     id: number,
@@ -225,7 +225,7 @@ export class VerifierService {
   }
 
   /**
-   * 获取验证人统计
+获取验证人统计
    */
   async getStats(id: number): Promise<VerifierStats> {
     const verifier = await prisma.verifier.findUnique({
@@ -255,7 +255,7 @@ export class VerifierService {
   // ============================================
 
   /**
-   * 计算信誉等级
+计算信誉等级
    */
   private calculateLevel(score: number): ReputationLevel {
     if (score >= 80) return 'master'
@@ -265,7 +265,7 @@ export class VerifierService {
   }
 
   /**
-   * 安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
+安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
    */
   private parseJson<T>(value: unknown, defaultValue: T): T {
     if (!value) return defaultValue
@@ -280,15 +280,11 @@ export class VerifierService {
   }
 
   /**
-   * 转换数据库记录
+转换数据库记录
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private transformVerifier(record: any): Verifier {
-    const credentials = this.parseJson<{
-      publicKey?: string
-      certificateUrl?: string
-      verified?: boolean
-    }>(record.credentials, { verified: false })
+    const credentials = this.parseJson(record.credentials, { verified: false })
 
     return {
       id: record.id,
