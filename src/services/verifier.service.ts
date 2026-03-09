@@ -72,7 +72,7 @@ export class VerifierService {
    */
   async findById(id: number): Promise<Verifier | null> {
     const cacheKey = CacheKeys.verifier(String(id))
-    const cached = await getCache(cacheKey)
+    const cached = (await getCache(cacheKey)) as Verifier | null
     if (cached) return cached
 
     const verifier = await prisma.verifier.findUnique({
@@ -292,9 +292,9 @@ export class VerifierService {
       name: record.name,
       description: record.description,
       credentials: {
-        publicKey: credentials.publicKey,
-        certificateUrl: credentials.certificateUrl,
-        verified: credentials.verified || false,
+        publicKey: (credentials as any).publicKey,
+        certificateUrl: (credentials as any).certificateUrl,
+        verified: (credentials as any).verified || false,
       },
       reputation: {
         score: record.reputationScore,
