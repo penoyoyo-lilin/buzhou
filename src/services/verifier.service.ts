@@ -7,6 +7,7 @@
 import prisma from '@/core/db/client'
 import { eventBus, VerifierRegisteredPayload } from '@/core/events'
 import { CacheKeys, CacheTTL, setCache, getCache, deleteCache } from '@/core/cache'
+import { toJsonValue, fromJsonValue } from '@/core/db/utils'
 import type { VerifierType, VerifierStatus, ReputationLevel } from '@/types'
 
 // ============================================
@@ -139,7 +140,7 @@ export class VerifierService {
         type: data.type,
         name: data.name,
         description: data.description,
-        credentials: JSON.stringify(data.credentials || { verified: false }),
+        credentials: toJsonValue(data.credentials || { verified: false }) as string,
       },
     })
 
@@ -173,7 +174,7 @@ export class VerifierService {
     if (data.name) updateData.name = data.name
     if (data.description) updateData.description = data.description
     if (data.status) updateData.status = data.status
-    if (data.credentials) updateData.credentials = JSON.stringify(data.credentials)
+    if (data.credentials) updateData.credentials = toJsonValue(data.credentials) as string
 
     const verifier = await prisma.verifier.update({
       where: { id },
@@ -265,26 +266,11 @@ export class VerifierService {
   }
 
   /**
-安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
-   */
-  private parseJson<T>(value: unknown, defaultValue: T): T {
-    if (!value) return defaultValue
-    // PostgreSQL 的 Json 类型返回已解析的对象，直接返回
-    if (typeof value !== 'string') return value as T
-    // 如果是字符串（SQLite 兼容），尝试解析
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return defaultValue
-    }
-  }
-
-  /**
 转换数据库记录
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private transformVerifier(record: any): Verifier {
-    const credentials = this.parseJson(record.credentials, { verified: false })
+    const credentials = fromJsonValue(record.credentials, { verified: false })
 
     return {
       id: record.id,

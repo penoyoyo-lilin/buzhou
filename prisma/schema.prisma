@@ -55,7 +55,7 @@ model AuditLog {
   action     String
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
-  changes    String?  // JSON string
+  changes    Json?
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -76,16 +76,16 @@ model AuditLog {
 model Article {
   id                String    @id @default(cuid())
   slug              String    @unique
-  title             String    // JSON string: LocalizedString
-  summary           String    // JSON string: LocalizedString
-  content           String    // JSON string: LocalizedString
+  title             Json      // LocalizedString
+  summary           Json      // LocalizedString
+  content           Json      // LocalizedString
   domain            String    // agent, mcp, skill
-  tags              String    // JSON string: string[]
-  codeBlocks        String    @map("code_blocks") // JSON string: CodeBlock[]
-  metadata          String    // JSON string: ArticleMetadata
-  qaPairs           String    @map("qa_pairs") // JSON string: QAPair[]
-  relatedIds        String    @map("related_ids") // JSON string: string[]
-  keywords          String    @default("[]") @map("keywords") // JSON string: string[] (3-8个关键词，用于辅助决策)
+  tags              Json      // string[]
+  codeBlocks        Json      @map("code_blocks") // CodeBlock[]
+  metadata          Json      // ArticleMetadata
+  qaPairs           Json      @map("qa_pairs") // QAPair[]
+  relatedIds        Json      @map("related_ids") // string[]
+  keywords          Json      @default("[]") @map("keywords") // string[] (3-8个关键词，用于辅助决策)
   priority          String    @default("P1") // P0 | P1
   verificationStatus String   @default("pending") @map("verification_status") // verified, partial, pending, failed, deprecated
   status            String    @default("draft") // draft, published, archived, deprecated
@@ -115,7 +115,7 @@ model VerificationRecord {
   verifierId  Int       @map("verifier_id")
   verifier    Verifier  @relation(fields: [verifierId], references: [id])
   result      String    // passed, failed, partial
-  environment String    // JSON string
+  environment Json      // { os: string, runtime: string, version: string }
   notes       String?
   verifiedAt  DateTime  @default(now()) @map("verified_at")
 
@@ -137,7 +137,7 @@ model Verifier {
   type               String    // official_bot, third_party_agent, human_expert
   name               String
   description        String
-  credentials        String    // JSON string: VerifierCredentials
+  credentials        Json      // VerifierCredentials
   reputationScore    Int       @default(0) @map("reputation_score")
   reputationLevel    String    @default("beginner") @map("reputation_level") // beginner, intermediate, expert, master
   totalVerifications Int       @default(0) @map("total_verifications")

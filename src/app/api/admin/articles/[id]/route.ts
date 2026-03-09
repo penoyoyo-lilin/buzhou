@@ -2,17 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { idSchema } from '@/lib/validators'
-
-// 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
-function parseJsonField<T>(value: unknown, defaultValue: T): T {
-  if (!value) return defaultValue
-  if (typeof value !== 'string') return value as T
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return defaultValue
-  }
-}
+import { toJsonValue, fromJsonValue } from '@/core/db/utils'
 
 /**
  * GET /api/admin/articles/[id]
@@ -47,18 +37,18 @@ export async function GET(
     // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
     const parsedArticle = {
       ...article,
-      title: parseJsonField(article.title, { zh: '', en: '' }),
-      summary: parseJsonField(article.summary, { zh: '', en: '' }),
-      content: parseJsonField(article.content, { zh: '', en: '' }),
-      tags: parseJsonField(article.tags, [] as string[]),
-      keywords: parseJsonField(article.keywords, [] as string[]),
-      codeBlocks: parseJsonField(article.codeBlocks, []),
-      metadata: parseJsonField(article.metadata, {}),
-      qaPairs: parseJsonField(article.qaPairs, []),
-      relatedIds: parseJsonField(article.relatedIds, [] as string[]),
+      title: fromJsonValue(article.title, { zh: '', en: '' }),
+      summary: fromJsonValue(article.summary, { zh: '', en: '' }),
+      content: fromJsonValue(article.content, { zh: '', en: '' }),
+      tags: fromJsonValue(article.tags, [] as string[]),
+      keywords: fromJsonValue(article.keywords, [] as string[]),
+      codeBlocks: fromJsonValue(article.codeBlocks, []),
+      metadata: fromJsonValue(article.metadata, {}),
+      qaPairs: fromJsonValue(article.qaPairs, []),
+      relatedIds: fromJsonValue(article.relatedIds, [] as string[]),
       verificationRecords: (article.verificationRecords || []).map((record) => ({
         ...record,
-        environment: record.environment ? JSON.parse(record.environment as string) : { os: '', runtime: '', version: '' },
+        environment: fromJsonValue(record.environment, { os: '', runtime: '', version: '' }),
       })),
     }
 
@@ -96,35 +86,35 @@ export async function PUT(
       )
     }
 
-    // 构建更新数据（SQLite 需要将 JSON 字段序列化为字符串）
+    // 构建更新数据（兼容 SQLite 和 PostgreSQL）
     const updateData: Record<string, unknown> = {}
 
     if (body.title) {
-      updateData.title = JSON.stringify(body.title)
+      updateData.title = toJsonValue(body.title)
     }
     if (body.summary) {
-      updateData.summary = JSON.stringify(body.summary)
+      updateData.summary = toJsonValue(body.summary)
     }
     if (body.content) {
-      updateData.content = JSON.stringify(body.content)
+      updateData.content = toJsonValue(body.content)
     }
     if (body.domain) {
       updateData.domain = body.domain
     }
     if (body.tags !== undefined) {
-      updateData.tags = JSON.stringify(body.tags)
+      updateData.tags = toJsonValue(body.tags)
     }
     if (body.codeBlocks !== undefined) {
-      updateData.codeBlocks = JSON.stringify(body.codeBlocks)
+      updateData.codeBlocks = toJsonValue(body.codeBlocks)
     }
     if (body.metadata !== undefined) {
-      updateData.metadata = JSON.stringify(body.metadata)
+      updateData.metadata = toJsonValue(body.metadata)
     }
     if (body.qaPairs !== undefined) {
-      updateData.qaPairs = JSON.stringify(body.qaPairs)
+      updateData.qaPairs = toJsonValue(body.qaPairs)
     }
     if (body.relatedIds !== undefined) {
-      updateData.relatedIds = JSON.stringify(body.relatedIds)
+      updateData.relatedIds = toJsonValue(body.relatedIds)
     }
     if (body.status) {
       updateData.status = body.status

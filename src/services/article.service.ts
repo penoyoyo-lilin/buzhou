@@ -1,10 +1,11 @@
 /**
  * 文章服务
  * 负责文章的 CRUD 操作、搜索、发布等业务逻辑
- * 适配 PostgreSQL 数据库（JSON 字段使用原生 Json 类型）
+ * 兼容 SQLite 和 PostgreSQL 数据库
  */
 
 import prisma from '@/core/db/client'
+import { toJsonValue } from '@/core/db/utils'
 import { eventBus, ArticleCreatedPayload, ArticlePublishedPayload, ArticleUpdatedPayload } from '@/core/events'
 import { deleteCachePattern, CacheKeys, CacheTTL, setCache, getCache } from '@/core/cache'
 import { nanoid } from 'nanoid'
@@ -258,22 +259,22 @@ export class ArticleService {
     // 生成 ID
     const id = `art_${nanoid(12)}`
 
-    // 创建文章（SQLite 使用 String 存储 JSON，需要序列化）
+    // 创建文章（兼容 SQLite 和 PostgreSQL）
     const article = await prisma.article.create({
       data: {
         id,
         slug,
-        title: JSON.stringify(data.title),
-        summary: JSON.stringify(data.summary),
-        content: JSON.stringify(data.content),
+        title: toJsonValue(data.title),
+        summary: toJsonValue(data.summary),
+        content: toJsonValue(data.content),
         domain: data.domain,
         priority: data.priority || 'P1',
-        tags: JSON.stringify(data.tags || []),
-        keywords: JSON.stringify(data.keywords || []),
-        codeBlocks: JSON.stringify(data.codeBlocks || []),
-        metadata: JSON.stringify(data.metadata || this.defaultMetadata()),
-        qaPairs: JSON.stringify(data.qaPairs || []),
-        relatedIds: JSON.stringify(data.relatedIds || []),
+        tags: toJsonValue(data.tags || []),
+        keywords: toJsonValue(data.keywords || []),
+        codeBlocks: toJsonValue(data.codeBlocks || []),
+        metadata: toJsonValue(data.metadata || this.defaultMetadata()),
+        qaPairs: toJsonValue(data.qaPairs || []),
+        relatedIds: toJsonValue(data.relatedIds || []),
         createdBy: data.createdBy,
       },
     })
@@ -321,20 +322,20 @@ export class ArticleService {
    * 更新文章
    */
   async update(id: string, data: UpdateArticleData): Promise<Article> {
-    // 构建更新数据（SQLite 使用 String 存储 JSON，需要序列化）
+    // 构建更新数据（使用 toJsonValue 兼容 SQLite 和 PostgreSQL）
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: any = {}
 
-    if (data.title) updateData.title = JSON.stringify(data.title)
-    if (data.summary) updateData.summary = JSON.stringify(data.summary)
-    if (data.content) updateData.content = JSON.stringify(data.content)
+    if (data.title) updateData.title = toJsonValue(data.title)
+    if (data.summary) updateData.summary = toJsonValue(data.summary)
+    if (data.content) updateData.content = toJsonValue(data.content)
     if (data.domain) updateData.domain = data.domain
-    if (data.tags) updateData.tags = JSON.stringify(data.tags)
-    if (data.keywords) updateData.keywords = JSON.stringify(data.keywords)
-    if (data.codeBlocks) updateData.codeBlocks = JSON.stringify(data.codeBlocks)
-    if (data.metadata) updateData.metadata = JSON.stringify(data.metadata)
-    if (data.qaPairs) updateData.qaPairs = JSON.stringify(data.qaPairs)
-    if (data.relatedIds) updateData.relatedIds = JSON.stringify(data.relatedIds)
+    if (data.tags) updateData.tags = toJsonValue(data.tags)
+    if (data.keywords) updateData.keywords = toJsonValue(data.keywords)
+    if (data.codeBlocks) updateData.codeBlocks = toJsonValue(data.codeBlocks)
+    if (data.metadata) updateData.metadata = toJsonValue(data.metadata)
+    if (data.qaPairs) updateData.qaPairs = toJsonValue(data.qaPairs)
+    if (data.relatedIds) updateData.relatedIds = toJsonValue(data.relatedIds)
 
     const article = await prisma.article.update({
       where: { id },

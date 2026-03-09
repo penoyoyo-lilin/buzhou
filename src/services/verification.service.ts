@@ -7,6 +7,7 @@
 import prisma from '@/core/db/client'
 import { eventBus, ArticleVerifiedPayload } from '@/core/events'
 import { deleteCachePattern, CacheKeys } from '@/core/cache'
+import { toJsonValue, fromJsonValue } from '@/core/db/utils'
 import type { VerificationStatus, VerifierType } from '@/types'
 
 // ============================================
@@ -62,13 +63,13 @@ export class VerificationService {
       throw new Error(`Verifier not found: ${data.verifierId}`)
     }
 
-    // 创建验证记录（SQLite 使用 String 存储 JSON，需要序列化）
+    // 创建验证记录（使用 toJsonValue 兼容 SQLite 和 PostgreSQL）
     const record = await prisma.verificationRecord.create({
       data: {
         articleId: data.articleId,
         verifierId: data.verifierId,
         result: data.result,
-        environment: JSON.stringify(data.environment),
+        environment: toJsonValue(data.environment),
         notes: data.notes || null,
       },
       include: {
@@ -236,21 +237,6 @@ export class VerificationService {
   }
 
   /**
-   * 安全获取 JSON 值（PostgreSQL 的 Json 类型返回已解析的对象）
-   */
-  private parseJson<T>(value: unknown, defaultValue: T): T {
-    if (!value) return defaultValue
-    // PostgreSQL 的 Json 类型返回已解析的对象，直接返回
-    if (typeof value !== 'string') return value as T
-    // 如果是字符串（SQLite 兼容），尝试解析
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return defaultValue
-    }
-  }
-
-  /**
    * 转换数据库记录
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,7 +250,7 @@ export class VerificationService {
         name: record.verifier?.name || 'Unknown',
       },
       result: record.result as 'passed' | 'failed' | 'partial',
-      environment: this.parseJson(record.environment, { os: '', runtime: '', version: '' }),
+      environment: fromJsonValue(record.environment, { os: '', runtime: '', version: '' }),
       notes: record.notes,
       verifiedAt: record.verifiedAt?.toISOString?.() || record.verifiedAt,
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { verifierQuerySchema } from '@/lib/validators'
+import { toJsonValue } from '@/core/db/utils'
 import { z } from 'zod'
 
 // 创建验证人验证
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
         type,
         name,
         description: description || '',
-        credentials: JSON.stringify({ verified: false }),
+        credentials: toJsonValue({ verified: false }),
         reputationScore: 0,
         reputationLevel: 'beginner',
         totalVerifications: 0,
