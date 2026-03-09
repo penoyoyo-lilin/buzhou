@@ -96,35 +96,35 @@ export async function PUT(
       )
     }
 
-    // 构建更新数据（PostgreSQL Json 类型直接传递对象）
+    // 构建更新数据（SQLite 需要将 JSON 字段序列化为字符串）
     const updateData: Record<string, unknown> = {}
 
     if (body.title) {
-      updateData.title = body.title
+      updateData.title = JSON.stringify(body.title)
     }
     if (body.summary) {
-      updateData.summary = body.summary
+      updateData.summary = JSON.stringify(body.summary)
     }
     if (body.content) {
-      updateData.content = body.content
+      updateData.content = JSON.stringify(body.content)
     }
     if (body.domain) {
       updateData.domain = body.domain
     }
     if (body.tags !== undefined) {
-      updateData.tags = body.tags
+      updateData.tags = JSON.stringify(body.tags)
     }
     if (body.codeBlocks !== undefined) {
-      updateData.codeBlocks = body.codeBlocks
+      updateData.codeBlocks = JSON.stringify(body.codeBlocks)
     }
     if (body.metadata !== undefined) {
-      updateData.metadata = body.metadata
+      updateData.metadata = JSON.stringify(body.metadata)
     }
     if (body.qaPairs !== undefined) {
-      updateData.qaPairs = body.qaPairs
+      updateData.qaPairs = JSON.stringify(body.qaPairs)
     }
     if (body.relatedIds !== undefined) {
-      updateData.relatedIds = body.relatedIds
+      updateData.relatedIds = JSON.stringify(body.relatedIds)
     }
     if (body.status) {
       updateData.status = body.status

@@ -67,4 +67,16 @@
     - 分析根本原因后再执行修复操作
     - 连续2次相同失败应停下来检查环境配置
 
+29. **数据库环境区分**：
+    - **开发环境**：使用 SQLite，配置在 `.env`
+      - `DATABASE_URL="file:./data/buzhou.db"`
+      - schema: `prisma/schema.sqlite.prisma`
+    - **生产环境**：使用 PostgreSQL (Supabase)，配置在 `.env.local` 和 `.env.production`
+      - `DATABASE_URL="postgresql://...?pgbouncer=true"`
+      - schema: `prisma/schema.postgres.prisma`
+    - **切换 schema**：`cp prisma/schema.sqlite.prisma prisma/schema.prisma && npx prisma generate`
+    - **运行 seed**：SQLite 用 `.env`，PostgreSQL 用 `.env.local` 的环境变量
+
+30. 修改（edit）文件之前要先读取（read）文件
+
 

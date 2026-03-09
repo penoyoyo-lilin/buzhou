@@ -7,6 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/internal/v1/articles/route'
 import prisma from '@/core/db/client'
+import { nanoid } from 'nanoid'
 
 // Mock 环境变量
 const TEST_API_KEY = 'test-internal-api-key-12345'
@@ -481,6 +482,7 @@ describe('Internal Articles API Integration', () => {
       })
 
       const articleData = {
+        slug: `test-article-${nanoid(8)}`,
         title: { zh: '带验证记录的文章', en: 'Article with Verification Records' },
         summary: { zh: '摘要', en: 'Summary' },
         content: { zh: '内容', en: 'Content' },
@@ -569,6 +571,7 @@ describe('Internal Articles API Integration', () => {
       })
 
       const articleData = {
+        slug: `test-multi-verification-${nanoid(8)}`,
         title: { zh: '多验证记录文章', en: 'Article with Multiple Verification Records' },
         summary: { zh: '摘要', en: 'Summary' },
         content: { zh: '内容', en: 'Content' },

@@ -136,7 +136,8 @@ describe('RenderService', () => {
       expect(result.contentType).toBe('application/json')
       const parsed = JSON.parse(result.content)
       expect(parsed.id).toBe('art_test123')
-      expect(parsed.title.en).toBe('Test Article')
+      // toJsonResponse 返回扁平化的 title 字符串（根据语言提取）
+      expect(parsed.title).toBe('Test Article')
     })
 
     it('should include code blocks in Markdown', async () => {

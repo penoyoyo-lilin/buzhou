@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Card,
   CardContent,
@@ -31,7 +30,6 @@ export default function InternalKeyPage() {
   const [regenerating, setRegenerating] = useState(false)
   const [showNewKey, setShowNewKey] = useState(false)
   const [newKey, setNewKey] = useState<string>('')
-  const [confirmPrefix, setConfirmPrefix] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -63,19 +61,12 @@ export default function InternalKeyPage() {
 
   // 重新生成 Key
   const regenerateKey = async () => {
-    if (!confirmPrefix) {
-      setError('请输入确认码')
-      return
-    }
-
     setRegenerating(true)
     setError(null)
 
     try {
       const res = await fetch('/api/admin/internal-key', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: confirmPrefix }),
       })
 
       const data = await res.json()
@@ -84,7 +75,6 @@ export default function InternalKeyPage() {
         setNewKey(data.data.key)
         setShowNewKey(true)
         setKeyInfo({ prefix: data.data.prefix, length: data.data.key.length })
-        setConfirmPrefix('')
       } else {
         setError(data.error?.message || '重新生成失败')
       }
@@ -212,27 +202,13 @@ export default function InternalKeyPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              输入当前密钥前 8 位以确认
-            </label>
-            <Input
-              type="text"
-              placeholder="例如: buzhou_"
-              value={confirmPrefix}
-              onChange={(e) => setConfirmPrefix(e.target.value)}
-              maxLength={8}
-              className="font-mono"
-            />
-          </div>
-
           {error && (
             <p className="text-sm text-red-500">{error}</p>
           )}
 
           <Button
             onClick={regenerateKey}
-            disabled={regenerating || !confirmPrefix}
+            disabled={regenerating}
             variant="destructive"
           >
             {regenerating ? (

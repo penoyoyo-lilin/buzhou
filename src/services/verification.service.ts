@@ -62,13 +62,13 @@ export class VerificationService {
       throw new Error(`Verifier not found: ${data.verifierId}`)
     }
 
-    // 创建验证记录（PostgreSQL Json 类型直接传递对象）
+    // 创建验证记录（SQLite 使用 String 存储 JSON，需要序列化）
     const record = await prisma.verificationRecord.create({
       data: {
         articleId: data.articleId,
         verifierId: data.verifierId,
         result: data.result,
-        environment: data.environment,
+        environment: JSON.stringify(data.environment),
         notes: data.notes || null,
       },
       include: {
