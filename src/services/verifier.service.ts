@@ -133,13 +133,13 @@ export class VerifierService {
   /**
    * 创建验证人
    */
-  async create(data: CreateVerifierData): Promise<Verifier> {
+  async create(data: CreateVerifierData): Promise {
     const verifier = await prisma.verifier.create({
       data: {
         type: data.type,
         name: data.name,
         description: data.description,
-        credentials: data.credentials || { verified: false },
+        credentials: JSON.stringify(data.credentials || { verified: false }),
       },
     })
 
@@ -173,7 +173,7 @@ export class VerifierService {
     if (data.name) updateData.name = data.name
     if (data.description) updateData.description = data.description
     if (data.status) updateData.status = data.status
-    if (data.credentials) updateData.credentials = data.credentials
+    if (data.credentials) updateData.credentials = JSON.stringify(data.credentials)
 
     const verifier = await prisma.verifier.update({
       where: { id },
