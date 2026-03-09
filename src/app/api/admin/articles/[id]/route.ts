@@ -58,7 +58,7 @@ export async function GET(
       relatedIds: parseJsonField(article.relatedIds, [] as string[]),
       verificationRecords: (article.verificationRecords || []).map((record) => ({
         ...record,
-        environment: record.environment as { os: string; runtime: string; version: string },
+        environment: record.environment ? JSON.parse(record.environment as string) : { os: '', runtime: '', version: '' },
       })),
     }
 
