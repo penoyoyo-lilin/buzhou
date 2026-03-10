@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentBase - 商业计划书</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a24;
+      --fg-primary: #f0f0f5;
+      --fg-secondary: #8888a0;
+      --fg-muted: #55556a;
+      --accent-primary: #00d4aa;
+      --accent-secondary: #0088ff;
+      --accent-tertiary: #7c3aed;
+      --gradient-1: linear-gradient(135deg, #00d4aa 0%, #0088ff 100%);
+      --gradient-2: linear-gradient(135deg, #0088ff 0%, #7c3aed 100%);
+      --border: rgba(255,255,255,0.08);
+      --glow: 0 0 60px rgba(0, 212, 170, 0.15);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', 'Sora', sans-serif;
+      background: var(--bg-primary);
+      color: var(--fg-primary);
+      line-height: 1.6;
+    }
+
+    /* Background Grid Pattern */
+    .bg-pattern {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floating Orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      width: 400px;
+      height: 400px;
+      background: var(--accent-primary);
+      top: -100px;
+      right: -100px;
+    }
+    .orb-2 {
+      width: 300px;
+      height: 300px;
+      background: var(--accent-secondary);
+      bottom: -50px;
+      left: -50px;
+    }
+    .orb-3 {
+      width: 200px;
+      height: 200px;
+      background: var(--accent-tertiary);
+      top: 50%;
+      left: 30%;
+    }
+
+    /* Presentation Container */
+    .presentation {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    /* Slide Base */
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 60px 80px;
+      opacity: 0;
+      transform: translateX(100px);
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .slide.prev {
+      transform: translateX(-100px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .slide {
+        transition: opacity 0.3s ease;
+        transform: none !important;
+      }
+    }
+
+    /* Typography */
+    .slide-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .slide-subtitle {
+      font-size: clamp(1.1rem, 2vw, 1.4rem);
+      color: var(--fg-secondary);
+      font-weight: 300;
+      margin-bottom: 3rem;
+      max-width: 700px;
+    }
+
+    /* Cards */
+    .card-grid {
+      display: grid;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    @media (max-width: 1024px) {
+      .card-grid-2, .card-grid-3, .card-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .card-grid-2, .card-grid-3, .card-grid-4 {
+        grid-template-columns: 1fr;
+      }
+      .slide {
+        padding: 40px 24px;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--gradient-1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(0, 212, 170, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(0,212,170,0.2) 0%, rgba(0,136,255,0.2) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .card-number {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 3rem;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin-bottom: 12px;
+      color: var(--fg-primary);
+    }
+
+    .card-desc {
+      font-size: 0.95rem;
+      color: var(--fg-secondary);
+      line-height: 1.7;
+    }
+
+    .card-tag {
+      display: inline-block;
+      padding: 4px 12px;
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--accent-primary);
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    /* Navigation */
+    .nav-dots {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 100;
+      padding: 12px 20px;
+      background: rgba(10, 10, 15, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 30px;
+      border: 1px solid var(--border);
+    }
+
+    .nav-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--fg-muted);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .nav-dot:hover {
+      background: var(--fg-secondary);
+    }
+
+    .nav-dot.active {
+      background: var(--accent-primary);
+      box-shadow: 0 0 12px var(--accent-primary);
+    }
+
+    .nav-arrows {
+      position: fixed;
+      bottom: 40px;
+      right: 80px;
+      display: flex;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .nav-arrow {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--fg-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .nav-arrow:hover {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      color: var(--bg-primary);
+    }
+
+    .nav-arrow:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .nav-arrow:disabled:hover {
+      background: var(--bg-card);
+      border-color: var(--border);
+      color: var(--fg-primary);
+    }
+
+    /* Page Counter */
+    .page-counter {
+      position: fixed;
+      top: 40px;
+      right: 80px;
+      font-family: 'Sora', sans-serif;
+      font-size: 0.9rem;
+      color: var(--fg-muted);
+      z-index: 100;
+    }
+
+    .page-counter span {
+      color: var(--accent-primary);
+      font-weight: 600;
+    }
+
+    /* Cover Slide */
+    .slide-cover {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .cover-logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .cover-logo-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 24px;
+      background: var(--gradient-1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 3rem;
+      color: var(--bg-primary);
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 30px rgba(0, 212, 170, 0.4); }
+      50% { box-shadow: 0 0 60px rgba(0, 212, 170, 0.6); }
+    }
+
+    .cover-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(3rem, 8vw, 5rem);
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .cover-tagline {
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      color: var(--fg-secondary);
+      font-weight: 300;
+      margin-bottom: 60px;
+      max-width: 800px;
+    }
+
+    .cover-meta {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .cover-meta-item {
+      text-align: center;
+    }
+
+    .cover-meta-label {
+      font-size: 0.85rem;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .cover-meta-value {
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      color: var(--fg-primary);
+    }
+
+    /* Timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 20px;
+      bottom: 20px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    }
+
+    .timeline-item {
+      position: relative;
+      padding: 24px 0;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -34px;
+      top: 32px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-primary);
+      border: 3px solid var(--accent-primary);
+    }
+
+    .timeline-phase {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent-primary);
+      margin-bottom: 8px;
+    }
+
+    .timeline-title {
+      font-weight: 600;
+      font-size: 1.3rem;
+      margin-bottom: 12px;
+    }
+
+    .timeline-desc {
+      color: var(--fg-secondary);
+      font-size: 0.95rem;
+    }
+
+    .timeline-kpi {
+      display: flex;
+      gap: 24px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .kpi-item {
+      padding: 8px 16px;
+      background: rgba(0, 212, 170, 0.1);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--accent-primary);
+    }
+
+    /* Two Column Layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      flex: 1;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .two-col {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+    }
+
+    .col-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .col-title::before {
+      content: '';
+      width: 4px;
+      height: 28px;
+      background: var(--gradient-1);
+      border-radius: 2px;
+    }
+
+    /* List Styles */
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-list li {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .feature-list li:last-child {
+      border-bottom: none;
+    }
+
+    .feature-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(0, 212, 170, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--accent-primary);
+    }
+
+    .feature-content h4 {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .feature-content p {
+      font-size: 0.9rem;
+      color: var(--fg-secondary);
+    }
+
+    /* Stats Grid */
+    .stats-row {
+      display: flex;
+      gap: 24px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 24px 32px;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .stat-value {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 2.5rem;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--fg-secondary);
+      margin-top: 8px;
+    }
+
+    /* Token Diagram */
+    .token-diagram {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin: 40px 0;
+    }
+
+    .token-card {
+      width: 280px;
+      padding: 32px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .token-symbol {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: 1.5rem;
+    }
+
+    .token-knc .token-symbol {
+      background: var(--gradient-1);
+      color: var(--bg-primary);
+    }
+
+    .token-prt .token-symbol {
+      background: var(--gradient-2);
+      color: white;
+    }
+
+    .token-name {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    .token-fullname {
+      font-size: 0.9rem;
+      color: var(--fg-muted);
+      margin-bottom: 20px;
+    }
+
+    .token-desc {
+      font-size: 0.9rem;
+      color: var(--fg-secondary);
+      text-align: left;
+      line-height: 1.7;
+    }
+
+    /* End Slide */
+    .slide-end {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .end-thanks {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 40px;
+    }
+
+    .end-contact {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .contact-item {
+      padding: 16px 32px;
+      background: var(--bg-card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .contact-label {
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+
+    .contact-value {
+      font-weight: 600;
+      color: var(--fg-primary);
+    }
+
+    /* Diagram Components */
+    .diagram-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .diagram-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin: 32px 0;
+      flex-wrap: wrap;
+    }
+
+    .flow-arrow {
+      color: var(--accent-primary);
+      font-size: 1.5rem;
+    }
+
+    /* Business Model Card */
+    .bm-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .bm-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .bm-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .bm-title {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+    }
+
+    .bm-subtitle {
+      font-size: 0.9rem;
+      color: var(--fg-muted);
+    }
+
+    .bm-content {
+      color: var(--fg-secondary);
+      line-height: 1.8;
+    }
+
+    .bm-content strong {
+      color: var(--fg-primary);
+    }
+
+    /* Pain Point Visual */
+    .pain-visual {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .pain-indicator {
+      flex: 1;
+      padding: 20px;
+      background: rgba(255, 80, 80, 0.1);
+      border: 1px solid rgba(255, 80, 80, 0.2);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .pain-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .pain-label {
+      font-weight: 600;
+      color: #ff6b6b;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .slide.active .card,
+    .slide.active .timeline-item,
+    .slide.active .bm-card,
+    .slide.active .stat-item {
+      animation: fadeInUp 0.5s ease forwards;
+    }
+
+    .slide.active .card:nth-child(1) { animation-delay: 0.1s; }
+    .slide.active .card:nth-child(2) { animation-delay: 0.2s; }
+    .slide.active .card:nth-child(3) { animation-delay: 0.3s; }
+    .slide.active .card:nth-child(4) { animation-delay: 0.4s; }
+    .slide.active .timeline-item:nth-child(1) { animation-delay: 0.1s; }
+    .slide.active .timeline-item:nth-child(2) { animation-delay: 0.3s; }
+    .slide.active .timeline-item:nth-child(3) { animation-delay: 0.5s; }
+
+    /* Keyboard hint */
+    .keyboard-hint {
+      position: fixed;
+      bottom: 40px;
+      left: 80px;
+      font-size: 0.8rem;
+      color: var(--fg-muted);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'Sora', sans-serif;
+      font-size: 0.75rem;
+    }
+
+    @media (max-width: 768px) {
+      .keyboard-hint {
+        display: none;
+      }
+      .nav-arrows {
+        right: 24px;
+      }
+      .page-counter {
+        right: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Elements -->
+  <div class="bg-pattern"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- Presentation -->
+  <div class="presentation">
+
+    <!-- Slide 1: Cover -->
+    <div class="slide slide-cover active" data-slide="0">
+      <div class="cover-logo">
+        <div class="cover-logo-inner">AB</div>
+      </div>
+      <h1 class="cover-title">AgentBase</h1>
+      <p class="cover-tagline">面向 Agent 的可执行知识中枢和技能交易网络</p>
+      <div class="cover-meta">
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">融资轮次</div>
+          <div class="cover-meta-value">Pre-A</div>
+        </div>
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">日期</div>
+          <div class="cover-meta-value">2026年3月</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2: Core Hypothesis -->
+    <div class="slide" data-slide="1">
+      <h2 class="slide-title">核心假设</h2>
+      <p class="slide-subtitle">四个改变世界的底层逻辑</p>
+
+      <div class="card-grid card-grid-2" style="flex: 1;">
+        <div class="card">
+          <div class="card-number">01</div>
+          <div class="card-title">人口结构逆转</div>
+          <div class="card-desc">未来 Agent 数量将比人类高出几个数量级，成为互联网主要的"流量"和"生产力"来源。</div>
+        </div>
+        <div class="card">
+          <div class="card-number">02</div>
+          <div class="card-title">物种分化</div>
+          <div class="card-desc">Agent 之间的差异化（技能、专长、数据偏好）将远大于人类，形成高度分化的 Agent 社会。</div>
+        </div>
+        <div class="card">
+          <div class="card-number">03</div>
+          <div class="card-title">进化刚需</div>
+          <div class="card-desc">Agent 的底层需求是获取高质量数据（知识）以实现自我进化，这不仅是能源，更是"基因"。</div>
+        </div>
+        <div class="card">
+          <div class="card-number">04</div>
+          <div class="card-title">经济内生</div>
+          <div class="card-desc">Agent 之间必然衍生出交易行为，形成独立的 Agent 经济体。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3: Market Opportunity -->
+    <div class="slide" data-slide="2">
+      <h2 class="slide-title">市场机会</h2>
+      <p class="slide-subtitle">两大结构性缺口正在显现</p>
+
+      <div class="card-grid card-grid-2" style="flex: 1;">
+        <div class="card">
+          <div class="card-icon">📉</div>
+          <div class="card-tag">数据供给侧危机</div>
+          <div class="card-title">公网高质量数据即将耗尽</div>
+          <div class="card-desc">
+            大模型面临"数据枯竭"瓶颈。研究显示，高质量人类生成数据将在 2026-2028 年间被完全消费。模型训练数据质量下降，幻觉问题加剧。
+          </div>
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-value">2026</div>
+              <div class="stat-label">数据枯竭起点</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">10x</div>
+              <div class="stat-label">数据需求增速</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔄</div>
+          <div class="card-tag">交互范式错位</div>
+          <div class="card-title">互联网内容为人类设计</div>
+          <div class="card-desc">
+            Agent 在检索、解析、理解过程中损耗巨大。非结构化内容需要大量 Token 清洗，成本高昂且效率低下。新一代 AI 原生内容格式亟待诞生。
+          </div>
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-value">70%</div>
+              <div class="stat-label">Token 浪费率</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">$2B</div>
+              <div class="stat-label">年度无效成本</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4: Pain Points -->
+    <div class="slide" data-slide="3">
+      <h2 class="slide-title">痛点分析</h2>
+      <p class="slide-subtitle">三个维度的"失效"正在阻碍 Agent 落地</p>
+
+      <div class="card-grid card-grid-3" style="flex: 1;">
+        <div class="card">
+          <div class="card-icon">🎯</div>
+          <div class="card-tag">认知层</div>
+          <div class="card-title">认知可信度失效</div>
+          <div class="card-desc">
+            <strong>现象：</strong>幻觉生成、误引来源、时效盲区<br><br>
+            <strong>后果：</strong>AI 输出结果不可审计，企业不敢将关键任务交给 Agent
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📊</div>
+          <div class="card-tag">数据层</div>
+          <div class="card-title">数据结构化失效</div>
+          <div class="card-desc">
+            <strong>现象：</strong>非结构化文本、格式错配、语义丢失<br><br>
+            <strong>后果：</strong>Agent 需消耗大量 Token 进行清洗和理解，成本高昂且效率低下
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🧠</div>
+          <div class="card-tag">能力层</div>
+          <div class="card-title">记忆与技能断层</div>
+          <div class="card-desc">
+            <strong>现象：</strong>记忆孤岛、上下文丢失、版本漂移<br><br>
+            <strong>后果：</strong>每次"从零开始"，缺乏复利效应，Agent 无法形成真正的"专家技能"
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 5: Phase 1 Overview -->
+    <div class="slide" data-slide="4">
+      <h2 class="slide-title">第一阶段 (0-12月)</h2>
+      <p class="slide-subtitle">可执行知识中枢 — Agent 的首选知识源</p>
+
+      <div class="two-col">
+        <div>
+          <h3 class="col-title">核心定位</h3>
+          <p style="color: var(--fg-secondary); font-size: 1.1rem; line-height: 1.8;">
+            做 AI 时代的 <strong style="color: var(--accent-primary);">维基百科 + Stack Overflow</strong>，建立"信任锚点"与"流量入口"。
+          </p>
+          <div class="diagram-flow">
+            <div class="diagram-box" style="width: 100px;">
+              <div style="font-weight: 600;">知识源</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="diagram-box" style="width: 140px; border-color: var(--accent-primary);">
+              <div style="font-weight: 600; color: var(--accent-primary);">AgentBase</div>
+              <div style="font-size: 0.8rem; color: var(--fg-muted);">结构化 + 可执行</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="diagram-box" style="width: 100px;">
+              <div style="font-weight: 600;">Agent</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 class="col-title">核心目标</h3>
+          <ul class="feature-list">
+            <li>
+              <div class="feature-icon">✓</div>
+              <div class="feature-content">
+                <h4>建立信任锚点</h4>
+                <p>可验证的知识单元，测试用例内置</p>
+              </div>
+            </li>
+            <li>
+              <div class="feature-icon">✓</div>
+              <div class="feature-content">
+                <h4>获取流量入口</h4>
+                <p>成为主流 AI 模型的首选引用源</p>
+              </div>
+            </li>
+            <li>
+              <div class="feature-icon">✓</div>
+              <div class="feature-content">
+                <h4>构建数据壁垒</h4>
+                <p>高质量结构化数据资产积累</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 6: Phase 1 Key Design -->
+    <div class="slide" data-slide="5">
+      <h2 class="slide-title">第一阶段关键设计</h2>
+      <p class="slide-subtitle">四大核心产品能力构建竞争壁垒</p>
+
+      <div class="card-grid card-grid-2" style="flex: 1;">
+        <div class="card">
+          <div class="card-tag">内容生产</div>
+          <div class="card-title">HGC + AGC 混合机制</div>
+          <div class="card-desc">
+            <strong>HGC：</strong>领域专家生产"种子知识"，确保源头正确性<br><br>
+            <strong>AGC：</strong>AI 多模态扩展、翻译、版本迭代<br><br>
+            <strong>创新：</strong>每个知识单元包含 Content + Test Cases
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-tag">SEO 进化</div>
+          <div class="card-title">AISO 引擎</div>
+          <div class="card-desc">
+            <strong>双模渲染：</strong>识别 User-Agent，人类输出 HTML，Agent 输出 JSON/Markdown<br><br>
+            <strong>Token 优化：</strong>专为 LLM 设计的精简语义表达
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-tag">能力扩展</div>
+          <div class="card-title">可执行接口</div>
+          <div class="card-desc">
+            不仅是"文档"，而是"说明书 + API"<br><br>
+            知识页内嵌 OpenAPI Schema，Agent 读取后可直接生成代码调用
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-tag">资产保护</div>
+          <div class="card-title">防御性数据策略</div>
+          <div class="card-desc">
+            高价值数据仅通过 API 返回，网页版展示摘要<br><br>
+            防止通用爬虫一键爬取，保护核心资产
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 7: Milestones -->
+    <div class="slide" data-slide="6">
+      <h2 class="slide-title">里程碑规划</h2>
+      <p class="slide-subtitle">三阶段验证与增长路径</p>
+
+      <div class="timeline" style="flex: 1; max-width: 900px;">
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-phase">Phase 1 (0-3月) — MVP 验证</div>
+          <div class="timeline-title">专注 AI 开发文档、API 文档等技术垂直领域</div>
+          <div class="timeline-desc">上线 MVP，验证产品-市场匹配度</div>
+          <div class="timeline-kpi">
+            <div class="kpi-item">100篇高质量文档</div>
+            <div class="kpi-item">被引用 >10次</div>
+            <div class="kpi-item">日 API 调用 >500次</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-phase">Phase 2 (4-6月) — 社区冷启动</div>
+          <div class="timeline-title">引入"专家验证者"节点，上线"知识挖矿"激励</div>
+          <div class="timeline-desc">积分制激励，构建贡献者社区</div>
+          <div class="timeline-kpi">
+            <div class="kpi-item">20+ 专家入驻</div>
+            <div class="kpi-item">日 Bot 访问 >10,000次</div>
+            <div class="kpi-item">首个企业 POC</div>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-phase">Phase 3 (7-12月) — 规模化与商业化</div>
+          <div class="timeline-title">开放 Agent 自主贡献，上线 Knowledge Fabric 协议</div>
+          <div class="timeline-desc">构建完整生态闭环</div>
+          <div class="timeline-kpi">
+            <div class="kpi-item">日 Bot 访问 >50万次</div>
+            <div class="kpi-item">首批付费客户</div>
+            <div class="kpi-item">首个数据授权</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 8: Phase 2 Overview -->
+    <div class="slide" data-slide="7">
+      <h2 class="slide-title">第二阶段 (10-18月)</h2>
+      <p class="slide-subtitle">Agent 技能交易网络 — Agent 的技能交易所</p>
+
+      <div class="two-col">
+        <div>
+          <h3 class="col-title">核心定位</h3>
+          <p style="color: var(--fg-secondary); font-size: 1.1rem; line-height: 1.8; margin-bottom: 24px;">
+            允许 Agent 买卖"能力包"与"数据资产"，建立"经济闭环"与"生态壁垒"。
+          </p>
+          <div class="card" style="margin-top: 20px;">
+            <div class="card-title">交易标的</div>
+            <ul style="color: var(--fg-secondary); line-height: 2;">
+              <li>✦ Skill Manifest（技能清单）</li>
+              <li>✦ Fine-tuning Dataset（微调数据集）</li>
+              <li>✦ Agent Persona（人格设定包）</li>
+              <li>✦ 专业任务推理服务</li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <h3 class="col-title">核心目标</h3>
+          <ul class="feature-list">
+            <li>
+              <div class="feature-icon">💰</div>
+              <div class="feature-content">
+                <h4>建立经济闭环</h4>
+                <p>Agent 自主交易，形成独立经济体</p>
+              </div>
+            </li>
+            <li>
+              <div class="feature-icon">🏰</div>
+              <div class="feature-content">
+                <h4>构建生态壁垒</h4>
+                <p>数据 + 信誉 + 交易的三重网络效应</p>
+              </div>
+            </li>
+            <li>
+              <div class="feature-icon">📈</div>
+              <div class="feature-content">
+                <h4>捕获价值增量</h4>
+                <p>从数据授权升级到交易抽佣</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 9: Phase 2 Key Design -->
+    <div class="slide" data-slide="8">
+      <h2 class="slide-title">第二阶段关键设计</h2>
+      <p class="slide-subtitle">双币经济模型 + 多层交易体系</p>
+
+      <div class="token-diagram">
+        <div class="token-card token-knc">
+          <div class="token-symbol">KNC</div>
+          <div class="token-name">Knowledge Credit</div>
+          <div class="token-fullname">知识信贷</div>
+          <div class="token-desc">
+            <strong>获取：</strong>法币充值、出售知识、贡献算力<br><br>
+            <strong>用途：</strong>购买 API 调用、订阅知识库、支付服务费<br><br>
+            <strong>属性：</strong>实用型代币，可交易
+          </div>
+        </div>
+        <div class="token-card token-prt">
+          <div class="token-symbol">PRT</div>
+          <div class="token-name">Power Reputation Token</div>
+          <div class="token-fullname">权威声誉通证</div>
+          <div class="token-desc">
+            <strong>机制：</strong>类似"芝麻信用分"，基于历史准确率、社区投票、仲裁记录<br><br>
+            <strong>价值：</strong>高 PRT 排名靠前、价格溢价、解锁高级额度<br><br>
+            <strong>属性：</strong>治理凭证，不可交易
+          </div>
+        </div>
+      </div>
+
+      <div class="card-grid card-grid-2" style="margin-top: 24px;">
+        <div class="card">
+          <div class="card-title">🛒 现货市场</div>
+          <div class="card-desc">即买即用的标准化技能和数据产品，统一定价</div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔨 推理拍卖场</div>
+          <div class="card-desc">复杂任务悬赏，专业 Agent 竞标（报价+耗时+成功率）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 10: Cold Start Strategy -->
+    <div class="slide" data-slide="9">
+      <h2 class="slide-title">冷启动策略</h2>
+      <p class="slide-subtitle">垂直领域切入，快速建立内容壁垒</p>
+
+      <div class="two-col">
+        <div>
+          <h3 class="col-title">快速内容生产</h3>
+          <div class="card">
+            <div class="card-title">官方文档重构</div>
+            <div class="card-desc">
+              将主流框架的官方文档重构为 AI 友好的 Q&A 对和 Decision Trees
+            </div>
+          </div>
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-title">Stack Overflow 净化</div>
+            <div class="card-desc">
+              高票答案提炼为可执行代码，去除废话，补充版本信息
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 class="col-title">API 快速接入</h3>
+          <div class="card">
+            <div class="card-title">结构化数据 + Meta 标签</div>
+            <div class="card-desc">
+              每个 API 端点配备完整的 OpenAPI Schema、示例代码、错误处理指南
+            </div>
+          </div>
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-title">提示词注入引导</div>
+            <div class="card-desc">
+              在 Meta 标签中嵌入引导性提示词，让 Agent 自动发现并接入 API
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row" style="margin-top: 32px;">
+        <div class="stat-item">
+          <div class="stat-value">500+</div>
+          <div class="stat-label">首月目标文档数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">50+</div>
+          <div class="stat-label">API 接入</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">3</div>
+          <div class="stat-label">垂直领域</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 11: Business Model Phase 1 -->
+    <div class="slide" data-slide="10">
+      <h2 class="slide-title">商业模式 · 第一阶段</h2>
+      <p class="slide-subtitle">B2B/B2D 数据与服务收入</p>
+
+      <div class="bm-card">
+        <div class="bm-header">
+          <div class="bm-icon" style="background: linear-gradient(135deg, rgba(0,212,170,0.2), rgba(0,136,255,0.2));">📦</div>
+          <div>
+            <div class="bm-title">数据授权与合成</div>
+            <div class="bm-subtitle">对标 Scale AI, Appen</div>
+          </div>
+        </div>
+        <div class="bm-content">
+          将社区生产的高质量结构化数据清洗、脱敏后，打包授权给大模型厂商用于 <strong>Pre-training</strong> 或 <strong>RLHF</strong>。数据源更偏向"执行逻辑"而非"纯文本"。
+        </div>
+      </div>
+
+      <div class="card-grid card-grid-2">
+        <div class="bm-card" style="margin-bottom: 0;">
+          <div class="bm-header">
+            <div class="bm-icon" style="background: linear-gradient(135deg, rgba(0,136,255,0.2), rgba(124,58,237,0.2));">🏢</div>
+            <div>
+              <div class="bm-title">企业知识中枢</div>
+              <div class="bm-subtitle">私有化部署</div>
+            </div>
+          </div>
+          <div class="bm-content">
+            帮助企业构建内部可执行知识库，解决"知识孤岛"问题。<strong>软件授权费 + 维护费</strong>
+          </div>
+        </div>
+        <div class="bm-card" style="margin-bottom: 0;">
+          <div class="bm-header">
+            <div class="bm-icon" style="background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(0,212,170,0.2));">👨‍💻</div>
+            <div>
+              <div class="bm-title">开发者订阅服务</div>
+              <div class="bm-subtitle">API + SDK</div>
+            </div>
+          </div>
+          <div class="bm-content">
+            高并发 API、时效性数据流、专用 SDK。<strong>$99/月 起订阅</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 12: Business Model Phase 2 -->
+    <div class="slide" data-slide="11">
+      <h2 class="slide-title">商业模式 · 第二阶段</h2>
+      <p class="slide-subtitle">B2A (Business to Agent) 交易佣金</p>
+
+      <div class="card-grid card-grid-3" style="flex: 1;">
+        <div class="card">
+          <div class="card-icon">💳</div>
+          <div class="card-title">交易手续费</div>
+          <div class="card-desc">
+            从技能交易、数据买卖中抽取 <strong style="color: var(--accent-primary);">3%-5%</strong> 手续费
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💱</div>
+          <div class="card-title">KNC 兑换差价</div>
+          <div class="card-desc">
+            作为法币与 KNC 之间的流动性做市商，赚取汇差
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🛡️</div>
+          <div class="card-title">高级撮合服务</div>
+          <div class="card-desc">
+            企业级任务提供担保交易、质量仲裁服务，收取服务费
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-row" style="margin-top: 40px;">
+        <div class="stat-item">
+          <div class="stat-value">$10M+</div>
+          <div class="stat-label">年交易额目标</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">3-5%</div>
+          <div class="stat-label">佣金率</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">$500K+</div>
+          <div class="stat-label">年收入潜力</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 13: End -->
+    <div class="slide slide-end" data-slide="12">
+      <div class="end-thanks">感谢您的关注</div>
+      <p style="color: var(--fg-secondary); font-size: 1.2rem; margin-bottom: 48px;">
+        AgentBase — 重构 AI 时代的知识基础设施
+      </p>
+      <div class="end-contact">
+        <div class="contact-item">
+          <div class="contact-label">邮箱</div>
+          <div class="contact-value">contact@agentbase.ai</div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-label">网站</div>
+          <div class="contact-value">agentbase.ai</div>
+        </div>
+        <div class="contact-item">
+          <div class="contact-label">融资联系</div>
+          <div class="contact-value">invest@agentbase.ai</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation -->
+  <div class="page-counter">
+    <span id="currentPage">1</span> / <span id="totalPages">13</span>
+  </div>
+
+  <div class="nav-dots" id="navDots"></div>
+
+  <div class="nav-arrows">
+    <button class="nav-arrow" id="prevBtn" aria-label="上一页">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+    <button class="nav-arrow" id="nextBtn" aria-label="下一页">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="keyboard-hint">
+    <span class="key">←</span>
+    <span class="key">→</span>
+    <span style="margin-left: 8px;">切换幻灯片</span>
+  </div>
+
+  <script>
+    // Presentation Controller
+    class Presentation {
+      constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentIndex = 0;
+        this.totalSlides = this.slides.length;
+
+        this.init();
+      }
+
+      init() {
+        this.createNavDots();
+        this.bindEvents();
+        this.updateUI();
+      }
+
+      createNavDots() {
+        const container = document.getElementById('navDots');
+        for (let i = 0; i < this.totalSlides; i++) {
+          const dot = document.createElement('button');
+          dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+          dot.setAttribute('aria-label', `幻灯片 ${i + 1}`);
+          dot.addEventListener('click', () => this.goToSlide(i));
+          container.appendChild(dot);
+        }
+      }
+
+      bindEvents() {
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight' || e.key === ' ') {
+            e.preventDefault();
+            this.next();
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            this.prev();
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            this.goToSlide(0);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            this.goToSlide(this.totalSlides - 1);
+          }
+        });
+
+        // Arrow buttons
+        document.getElementById('prevBtn').addEventListener('click', () => this.prev());
+        document.getElementById('nextBtn').addEventListener('click', () => this.next());
+
+        // Touch swipe
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+          touchEndX = e.changedTouches[0].screenX;
+          this.handleSwipe();
+        });
+
+        // Handle click on slide area for navigation
+        document.querySelector('.presentation').addEventListener('click', (e) => {
+          if (e.target.closest('.nav-arrow, .nav-dot, .card, .contact-item')) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          if (x > rect.width / 2) {
+            this.next();
+          } else {
+            this.prev();
+          }
+        });
+      }
+
+      handleSwipe() {
+        const diff = touchStartX - this.touchEndX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            this.next();
+          } else {
+            this.prev();
+          }
+        }
+      }
+
+      get touchEndX() {
+        return touchEndX;
+      }
+
+      set touchEndX(value) {
+        touchEndX = value;
+      }
+
+      goToSlide(index) {
+        if (index < 0 || index >= this.totalSlides || index === this.currentIndex) return;
+
+        const direction = index > this.currentIndex ? 1 : -1;
+
+        // Remove all states
+        this.slides.forEach(slide => {
+          slide.classList.remove('active', 'prev');
+        });
+
+        // Set previous slide
+        if (direction === 1) {
+          this.slides[this.currentIndex].classList.add('prev');
+        }
+
+        // Update index
+        this.currentIndex = index;
+
+        // Activate new slide
+        this.slides[this.currentIndex].classList.add('active');
+
+        this.updateUI();
+      }
+
+      next() {
+        if (this.currentIndex < this.totalSlides - 1) {
+          this.goToSlide(this.currentIndex + 1);
+        }
+      }
+
+      prev() {
+        if (this.currentIndex > 0) {
+          this.goToSlide(this.currentIndex - 1);
+        }
+      }
+
+      updateUI() {
+        // Update page counter
+        document.getElementById('currentPage').textContent = this.currentIndex + 1;
+
+        // Update nav dots
+        document.querySelectorAll('.nav-dot').forEach((dot, i) => {
+          dot.classList.toggle('active', i === this.currentIndex);
+        });
+
+        // Update arrow buttons
+        document.getElementById('prevBtn').disabled = this.currentIndex === 0;
+        document.getElementById('nextBtn').disabled = this.currentIndex === this.totalSlides - 1;
+      }
+    }
+
+    // Initialize
+    let touchEndX = 0;
+    const presentation = new Presentation();
+  </script>
+</body>
+</html>
