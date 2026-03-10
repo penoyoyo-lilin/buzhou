@@ -34,31 +34,8 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
     notFound()
   }
 
-  // 如果请求 Markdown 格式，直接返回纯文本
-  if (format === 'markdown') {
-    const markdownContent = renderService.toMarkdown(article, lang)
-    return new Response(markdownContent, {
-      headers: {
-        'Content-Type': 'text/markdown; charset=utf-8',
-        'X-Article-Id': article.id,
-        'X-Article-Slug': article.slug,
-      },
-    })
-  }
-
-  // 如果请求 JSON 格式，返回结构化数据
-  if (format === 'json') {
-    const jsonContent = renderService.toJsonResponse(article, lang)
-    return new Response(jsonContent, {
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'X-Article-Id': article.id,
-        'X-Article-Slug': article.slug,
-      },
-    })
-  }
-
-  // HTML 格式（默认），继续渲染页面
+  // markdown 和 json 格式通过 API 路由提供
+  // 页面组件只处理 HTML 格式
 
   // 获取验证记录
   const verificationRecords = article.verificationRecords || []

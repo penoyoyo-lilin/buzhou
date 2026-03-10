@@ -35,7 +35,8 @@ test.describe('Article Detail Format Parameter', () => {
       return
     }
 
-    const response = await request.get(`/zh/articles/${articleSlug}?format=markdown`)
+    // 使用 API 路由获取 markdown 格式
+    const response = await request.get(`/api/v1/articles/${articleSlug}?format=markdown`)
 
     expect(response.status()).toBe(200)
     expect(response.headers()['content-type']).toContain('text/markdown')
@@ -52,7 +53,8 @@ test.describe('Article Detail Format Parameter', () => {
       return
     }
 
-    const response = await request.get(`/zh/articles/${articleSlug}?format=json`)
+    // 使用 API 路由获取 JSON 格式
+    const response = await request.get(`/api/v1/articles/${articleSlug}?format=json`)
 
     expect(response.status()).toBe(200)
     expect(response.headers()['content-type']).toContain('application/json')
@@ -71,7 +73,7 @@ test.describe('Article Detail Format Parameter', () => {
       return
     }
 
-    const response = await request.get(`/zh/articles/${articleSlug}?format=markdown`)
+    const response = await request.get(`/api/v1/articles/${articleSlug}?format=markdown`)
 
     expect(response.headers()['x-article-id']).toBeDefined()
     expect(response.headers()['x-article-slug']).toBe(articleSlug)
@@ -83,21 +85,21 @@ test.describe('Article Detail Format Parameter', () => {
       return
     }
 
-    const response = await request.get(`/zh/articles/${articleSlug}?format=json`)
+    const response = await request.get(`/api/v1/articles/${articleSlug}?format=json`)
 
     expect(response.headers()['x-article-id']).toBeDefined()
     expect(response.headers()['x-article-slug']).toBe(articleSlug)
   })
 
   test('should return 404 for non-existent article', async ({ request }) => {
-    const response = await request.get('/zh/articles/non-existent-slug-12345')
-
+    // API 路由应该返回 404
+    const response = await request.get('/api/v1/articles/non-existent-slug-12345')
     expect(response.status()).toBe(404)
   })
 
   test('should return 404 for non-existent article with format parameter', async ({ request }) => {
-    const response = await request.get('/zh/articles/non-existent-slug-12345?format=markdown')
-
+    // API 路由应该返回 404
+    const response = await request.get('/api/v1/articles/non-existent-slug-12345?format=markdown')
     expect(response.status()).toBe(404)
   })
 })
