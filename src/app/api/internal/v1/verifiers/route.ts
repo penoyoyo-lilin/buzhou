@@ -34,7 +34,7 @@ const querySchema = z.object({
  */
 export async function GET(request: NextRequest) {
   // 验证内部 API 认证
-  if (!verifyInternalAuth(request)) {
+  if (!await verifyInternalAuth(request)) {
     return Response.json(
       errorResponse(ErrorCodes.UNAUTHORIZED, '无效的内部 API 密钥'),
       { status: 401 }
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   // 验证内部 API 认证
-  if (!verifyInternalAuth(request)) {
+  if (!await verifyInternalAuth(request)) {
     return Response.json(
       errorResponse(ErrorCodes.UNAUTHORIZED, '无效的内部 API 密钥'),
       { status: 401 }

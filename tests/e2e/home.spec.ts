@@ -4,8 +4,8 @@ test.describe('首页', () => {
   test('应该正确加载首页', async ({ page }) => {
     await page.goto('/zh')
 
-    // 验证页面标题
-    await expect(page).toHaveTitle(/不周山/)
+    // 验证页面标题（支持中英文）
+    await expect(page).toHaveTitle(/不周山|Buzhou/)
 
     // 验证导航栏存在
     await expect(page.locator('nav')).toBeVisible()
@@ -39,7 +39,7 @@ test.describe('首页', () => {
   test('应该显示 API 文档链接', async ({ page }) => {
     await page.goto('/zh')
 
-    const apiDocsLink = page.locator('a[href*="/api-docs"]')
+    const apiDocsLink = page.locator('a[href*="/api-docs"]').first()
     await expect(apiDocsLink).toBeVisible()
   })
 })

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 // 辅助函数：登录管理后台
-async function loginAsAdmin(page) {
+async function loginAsAdmin(page: import("@playwright/test").Page) {
   await page.goto('/admin/login')
-  await page.locator('#email').fill('admin@buzhou.ai')
+  await page.locator('#email').fill('admin@buzhou.io')
   await page.locator('#password').fill('admin123456')
   await page.getByRole('button', { name: /登录/ }).click()
   await page.waitForURL(/\/admin(?!\/login)/, { timeout: 10000 })

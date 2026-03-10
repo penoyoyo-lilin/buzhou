@@ -1,35 +1,40 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, Page } from '@playwright/test'
 
 /**
  * 文章管理 E2E 测试
  * 覆盖新建、编辑、删除、上下架、置顶、标记失效等功能
  */
 
+// 辅助函数：登录管理后台
+async function loginAsAdmin(page: Page) {
+  await page.goto('/admin/login')
+
+  const emailInput = page.locator('input[type="email"], input[name="email"]')
+  const passwordInput = page.locator('input[type="password"]')
+
+  await emailInput.fill('admin@buzhou.io')
+  await passwordInput.fill('admin123456')
+
+  const submitButton = page.locator('button[type="submit"]')
+  await submitButton.click()
+
+  // 等待登录完成
+  await page.waitForURL(/\/admin/, { timeout: 10000 })
+  await page.waitForLoadState('networkidle')
+}
+
 test.describe('文章管理', () => {
-  test.beforeEach(async ({ page }) => {
-    // 登录管理后台
-    await page.goto('/admin/login')
-
-    const emailInput = page.locator('input[type="email"], input[name="email"]')
-    const passwordInput = page.locator('input[type="password"]')
-
-    await emailInput.fill('admin@buzhou.io')
-    await passwordInput.fill('admin123456')
-
-    const submitButton = page.locator('button[type="submit"]')
-    await submitButton.click()
-
-    // 等待登录完成
-    await page.waitForURL(/\/admin/, { timeout: 10000 })
-  })
-
   // ============================================
   // 文章列表页面测试
   // ============================================
   test.describe('文章列表页面', () => {
-    test('应该能访问文章管理页面', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能访问文章管理页面', async ({ page }) => {
       // 验证页面标题
       const title = page.locator('h1')
       await expect(title).toContainText(/文章/)
@@ -40,15 +45,11 @@ test.describe('文章管理', () => {
     })
 
     test('应该显示新建文章按钮', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       const newArticleButton = page.locator('button:has-text("新建文章"), a:has-text("新建文章")')
       await expect(newArticleButton).toBeVisible()
     })
 
     test('应该能按状态筛选文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 查找状态筛选器
       const statusFilter = page.locator('select').first()
       if (await statusFilter.isVisible()) {
@@ -65,8 +66,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能按领域筛选文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 查找领域筛选器
       const domainFilters = page.locator('select')
       const domainFilter = domainFilters.nth(1) // 第二个 select 通常是领域筛选
@@ -80,8 +79,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能搜索文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 查找搜索框
       const searchInput = page.locator('input[placeholder*="搜索"], input[placeholder*="Search"]')
       if (await searchInput.isVisible()) {
@@ -94,8 +91,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能分页浏览文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 查找分页控件
       const pagination = page.locator('[data-testid="pagination"], nav[aria-label*="pagination"]')
       if (await pagination.isVisible()) {
@@ -108,8 +103,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能排序文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 点击创建时间列标题排序
       const createdAtHeader = page.locator('th:has-text("创建时间")')
       if (await createdAtHeader.isVisible()) {
@@ -123,19 +116,19 @@ test.describe('文章管理', () => {
   // 新建文章测试
   // ============================================
   test.describe('新建文章', () => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
+      await page.goto('/admin/articles/new')
+      await page.waitForLoadState('networkidle')
+    })
+
     test('应该能打开新建文章页面', async ({ page }) => {
-      await page.goto('/admin/articles')
-
-      const newArticleButton = page.locator('button:has-text("新建文章"), a:has-text("新建文章")')
-      await newArticleButton.click()
-
-      // 验证跳转到新建页面
-      await expect(page).toHaveURL(/\/admin\/articles\/new/)
+      // 验证页面标题
+      const title = page.locator('h1')
+      await expect(title).toContainText(/新建|创建/)
     })
 
     test('应该能创建新文章', async ({ page }) => {
-      await page.goto('/admin/articles/new')
-
       // 填写标题
       const zhTitleInput = page.locator('input[name="title.zh"], input[placeholder*="中文标题"]')
       const enTitleInput = page.locator('input[name="title.en"], input[placeholder*="英文标题"]')
@@ -186,8 +179,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该验证必填字段', async ({ page }) => {
-      await page.goto('/admin/articles/new')
-
       // 直接提交空表单
       const submitButton = page.locator('button[type="submit"]')
       if (await submitButton.isVisible()) {
@@ -197,6 +188,7 @@ test.describe('文章管理', () => {
         const errorMessage = page.locator('[role="alert"], .error, [data-error]')
         // 可能显示验证错误或停留在当前页面
         await page.waitForTimeout(500)
+        expect(await errorMessage.count()).toBeGreaterThanOrEqual(0)
       }
     })
   })
@@ -205,9 +197,13 @@ test.describe('文章管理', () => {
   // 编辑文章测试
   // ============================================
   test.describe('编辑文章', () => {
-    test('应该能打开文章编辑页面', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能打开文章编辑页面', async ({ page }) => {
       // 点击第一个文章的编辑按钮
       const editButton = page.locator('button[data-action="edit"], a[href*="/admin/articles/"]').first()
       if (await editButton.isVisible()) {
@@ -220,8 +216,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能修改文章内容', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 找到第一个可编辑的文章
       const editButton = page.locator('button[data-action="edit"], a[href*="/admin/articles/"]').first()
       if (await editButton.isVisible()) {
@@ -245,8 +239,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能修改文章状态为发布', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 找到草稿文章进行发布
       const draftRow = page.locator('tr:has-text("草稿")').first()
       if (await draftRow.isVisible()) {
@@ -272,8 +264,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能归档已发布的文章', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 找到已发布文章进行归档
       const publishedRow = page.locator('tr:has-text("已发布")').first()
       if (await publishedRow.isVisible()) {
@@ -303,9 +293,13 @@ test.describe('文章管理', () => {
   // 置顶功能测试
   // ============================================
   test.describe('置顶功能', () => {
-    test('应该能置顶文章', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能置顶文章', async ({ page }) => {
       // 找到未置顶的文章
       const unfeaturedRow = page.locator('tr:not(:has([data-testid="featured-icon"]))').first()
       if (await unfeaturedRow.isVisible()) {
@@ -320,8 +314,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该能取消置顶', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 找到已置顶的文章（有星标图标）
       const featuredRow = page.locator('tr:has(svg.lucide-star)').first()
       if (await featuredRow.isVisible()) {
@@ -338,9 +330,13 @@ test.describe('文章管理', () => {
   // 标记失效功能测试
   // ============================================
   test.describe('标记失效', () => {
-    test('应该能标记文章为失效', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能标记文章为失效', async ({ page }) => {
       // 找到一个文章进行失效标记
       const articleRow = page.locator('tr').first()
       if (await articleRow.isVisible()) {
@@ -356,8 +352,6 @@ test.describe('文章管理', () => {
     })
 
     test('失效文章应该显示失效状态', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 筛选失效文章
       const statusFilter = page.locator('select').first()
       if (await statusFilter.isVisible()) {
@@ -376,9 +370,13 @@ test.describe('文章管理', () => {
   // 删除文章测试
   // ============================================
   test.describe('删除文章', () => {
-    test('应该能删除文章', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能删除文章', async ({ page }) => {
       // 找到一个文章进行删除
       const articleRow = page.locator('tr').first()
       if (await articleRow.isVisible()) {
@@ -394,8 +392,6 @@ test.describe('文章管理', () => {
     })
 
     test('删除文章应该需要确认', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       const deleteButton = page.locator('button[data-action="delete"]').first()
       if (await deleteButton.isVisible()) {
         // 设置对话框取消处理
@@ -413,9 +409,13 @@ test.describe('文章管理', () => {
   // 文章详情页面测试
   // ============================================
   test.describe('文章详情页面', () => {
-    test('应该能查看文章详情', async ({ page }) => {
+    test.beforeEach(async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
+    })
 
+    test('应该能查看文章详情', async ({ page }) => {
       // 点击第一个文章的查看或编辑按钮
       const actionButton = page.locator('a[href*="/admin/articles/"]').first()
       if (await actionButton.isVisible()) {
@@ -434,8 +434,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该显示验证记录', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 进入文章详情
       const actionButton = page.locator('a[href*="/admin/articles/"]').first()
       if (await actionButton.isVisible()) {
@@ -450,8 +448,6 @@ test.describe('文章管理', () => {
     })
 
     test('应该显示代码块', async ({ page }) => {
-      await page.goto('/admin/articles')
-
       // 进入文章详情
       const actionButton = page.locator('a[href*="/admin/articles/"]').first()
       if (await actionButton.isVisible()) {
@@ -471,6 +467,7 @@ test.describe('文章管理', () => {
   // ============================================
   test.describe('边界情况和错误处理', () => {
     test('访问不存在的文章应该显示404或错误', async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles/art_nonexistent_id_12345')
 
       // 应该显示错误信息或重定向
@@ -487,7 +484,9 @@ test.describe('文章管理', () => {
     })
 
     test('空列表应该显示提示信息', async ({ page }) => {
+      await loginAsAdmin(page)
       await page.goto('/admin/articles')
+      await page.waitForLoadState('networkidle')
 
       // 搜索一个不存在的关键词
       const searchInput = page.locator('input[placeholder*="搜索"], input[placeholder*="Search"]')

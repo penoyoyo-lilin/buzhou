@@ -4,10 +4,10 @@ test.describe('AI Generated Fields Feature', () => {
   test.beforeEach(async ({ page }) => {
     // 登录管理后台
     await page.goto('/admin/login')
-    await page.fill('input[name="email"]', 'admin@example.com')
+    await page.fill('input[name="email"]', 'admin@buzhou.io')
     await page.fill('input[name="password"]', 'admin123456')
     await page.click('button[type="submit"]')
-    await page.waitForURL('/admin/dashboard')
+    await page.waitForURL('/admin/dashboard', { timeout: 10000 })
   })
 
   test('should display AI generation buttons on article edit page', async ({ page }) => {
