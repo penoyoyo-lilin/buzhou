@@ -15,16 +15,16 @@ const statsQuerySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  // 验证管理员认证
-  const admin = await verifyAdminAuth(request)
-  if (!admin) {
-    return Response.json(
-      errorResponse(ErrorCodes.UNAUTHORIZED, '未授权访问'),
-      { status: 401 }
-    )
-  }
-
   try {
+    // 验证管理员认证
+    const admin = await verifyAdminAuth(request)
+    if (!admin) {
+      return Response.json(
+        errorResponse(ErrorCodes.UNAUTHORIZED, '未授权访问'),
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const params = statsQuerySchema.parse({
       period: searchParams.get('period') || 'day',
@@ -51,14 +51,10 @@ export async function GET(request: NextRequest) {
       publishedArticles,
       totalViews,
       viewsInPeriod,
-      totalApiRequests,
-      apiRequestsInPeriod,
       activeAgents,
       activeVerifiers,
       pageViews,
-      apiRequestLogs,
       topPages,
-      topEndpoints,
     ] = await Promise.all([
       // 文章统计
       prisma.article.count(),
@@ -66,11 +62,6 @@ export async function GET(request: NextRequest) {
       // 浏览量统计
       prisma.pageViewLog.count(),
       prisma.pageViewLog.count({
-        where: { createdAt: { gte: startDate } },
-      }),
-      // API 请求统计
-      prisma.apiRequestLog.count(),
-      prisma.apiRequestLog.count({
         where: { createdAt: { gte: startDate } },
       }),
       // 活跃 Agent
@@ -83,15 +74,13 @@ export async function GET(request: NextRequest) {
         select: { path: true, isBot: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
       }),
-      // 时间范围内的 API 请求
-      prisma.apiRequestLog.findMany({
-        where: { createdAt: { gte: startDate } },
-        select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
-        orderBy: { createdAt: 'asc' },
-      }),
       // Top 页面
       getTopPages(startDate),
-      // Top API 端点
+    ])
+    const [totalApiRequests, apiRequestsInPeriod, apiRequestLogs, topEndpoints] = await Promise.all([
+      safeApiRequestCount(),
+      safeApiRequestCount(startDate),
+      safeApiRequestLogs(startDate),
       getTopEndpoints(startDate),
     ])
 
@@ -188,10 +177,7 @@ async function getTopPages(startDate: Date) {
  * 获取热门 API 端点
  */
 async function getTopEndpoints(startDate: Date) {
-  const apiRequests = await prisma.apiRequestLog.findMany({
-    where: { createdAt: { gte: startDate } },
-    select: { endpoint: true, statusCode: true, responseTime: true },
-  })
+  const apiRequests = await safeApiRequestLogs(startDate, false)
 
   const endpointStats = new Map<string, { count: number; errors: number; totalTime: number }>()
   apiRequests.forEach((req) => {
@@ -211,6 +197,48 @@ async function getTopEndpoints(startDate: Date) {
     }))
     .sort((a, b) => b.requests - a.requests)
     .slice(0, 10)
+}
+
+function isMissingTableError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.includes('P2021') || message.includes('does not exist') || message.includes('no such table')
+}
+
+async function safeApiRequestCount(startDate?: Date): Promise<number> {
+  try {
+    return await prisma.apiRequestLog.count(
+      startDate ? { where: { createdAt: { gte: startDate } } } : undefined
+    )
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      console.warn('[AdminStats] api_request_logs table is missing, fallback count=0')
+      return 0
+    }
+    throw error
+  }
+}
+
+async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true) {
+  try {
+    if (withCreatedAt) {
+      return await prisma.apiRequestLog.findMany({
+        where: { createdAt: { gte: startDate } },
+        select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      })
+    }
+
+    return await prisma.apiRequestLog.findMany({
+      where: { createdAt: { gte: startDate } },
+      select: { endpoint: true, statusCode: true, responseTime: true },
+    })
+  } catch (error) {
+    if (isMissingTableError(error)) {
+      console.warn('[AdminStats] api_request_logs table is missing, fallback logs=[]')
+      return []
+    }
+    throw error
+  }
 }
 
 /**
