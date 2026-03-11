@@ -218,7 +218,12 @@ async function safeApiRequestCount(startDate?: Date): Promise<number> {
   }
 }
 
-async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true) {
+async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true): Promise<Array<{
+  endpoint: string
+  statusCode: number
+  responseTime: number
+  createdAt?: Date
+}>> {
   try {
     if (withCreatedAt) {
       return await prisma.apiRequestLog.findMany({
