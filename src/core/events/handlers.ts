@@ -107,105 +107,17 @@ export function registerArticleEventHandlers() {
     }
   })
 
-  // 监听文章发布事件 - 自动触发 AI 生成
+  // 监听文章发布事件 - 仅记录日志，不再自动生成 AI 内容
+  // AI 内容生成现在通过 Internal API 手动控制
   eventBus.on('article:published', async (event) => {
-    const { articleId, publishedBy } = event.payload as {
+    const { articleId, publishedAt, publishedBy } = event.payload as {
       articleId: string
       publishedAt: string
       publishedBy: string
     }
 
-    console.log(`[ArticleEventHandler] Processing article:published for ${articleId}`)
-
-    try {
-      // 获取文章详情
-      const article = await articleService.findById(articleId)
-      if (!article) {
-        console.warn(`[ArticleEventHandler] Article not found: ${articleId}`)
-        return
-      }
-
-      // 检查是否已有 AI 生成内容，如果没有则生成
-      const needsGeneration = article.qaPairs.length === 0 || article.keywords.length === 0 || article.relatedIds.length === 0
-
-      if (!needsGeneration) {
-        console.log(`[ArticleEventHandler] Article ${articleId} already has AI generated content, skipping`)
-        return
-      }
-
-      // 并行执行生成任务
-      const tasks = []
-
-      // QA 对生成
-      if (article.qaPairs.length === 0) {
-        tasks.push(
-          aiService.generateQAPairs(article).then(async (result) => {
-            if (result.qaPairs.length > 0) {
-              await articleService.update(articleId, {
-                qaPairs: result.qaPairs,
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.qaPairs.length} QA pairs for ${articleId}`)
-            }
-          })
-        )
-      }
-
-      // 关键词生成
-      if (article.keywords.length === 0) {
-        tasks.push(
-          aiService.generateKeywords(article).then(async (result) => {
-            if (result.keywords.length > 0) {
-              const existingKeywords = new Set(article.keywords)
-              result.keywords.forEach((k) => existingKeywords.add(k))
-              await articleService.update(articleId, {
-                keywords: Array.from(existingKeywords),
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.keywords.length} keywords for ${articleId}`)
-            }
-          })
-        )
-      }
-
-      // 关联文章生成
-      if (article.relatedIds.length === 0) {
-        tasks.push(
-          (async () => {
-            const allArticles = await prisma.article.findMany({
-              where: { id: { not: articleId }, status: 'published' },
-              select: {
-                id: true,
-                title: true,
-                summary: true,
-                tags: true,
-                domain: true,
-              },
-            })
-
-            // 从数据库获取的 Json 类型是字符串，需要 JSON.parse
-            const parsedArticles = allArticles.map((a) => ({
-              id: a.id,
-              title: a.title ? JSON.parse(a.title as string) : { zh: '', en: '' },
-              summary: a.summary ? JSON.parse(a.summary as string) : { zh: '', en: '' },
-              tags: a.tags ? JSON.parse(a.tags as string) : [],
-              domain: a.domain,
-            })) as any[]
-
-            const result = await aiService.generateRelatedIds(article, parsedArticles)
-            if (result.relatedIds.length > 0) {
-              await articleService.update(articleId, {
-                relatedIds: result.relatedIds,
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.relatedIds.length} related articles for ${articleId}`)
-            }
-          })()
-        )
-      }
-
-      await Promise.allSettled(tasks)
-      console.log(`[ArticleEventHandler] Completed processing article:published for ${articleId}`)
-    } catch (error) {
-      console.error(`[ArticleEventHandler] Error processing article:published for ${articleId}:`, error)
-    }
+    console.log(`[ArticleEventHandler] Article published: ${articleId} by ${publishedBy} at ${publishedAt}`)
+    console.log(`[ArticleEventHandler] Note: AI content generation (QA, keywords, related) is now manual via Internal API`)
   })
 }
 

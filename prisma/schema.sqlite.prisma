@@ -69,7 +69,7 @@ model AuditLog {
 // 文章相关
 // ============================================
 
-// ArticleDomain: agent, mcp, skill
+// ArticleDomain: agent, mcp, skill, foundation, transport, tools_filesystem, tools_postgres, tools_github, error_codes, scenarios
 // ArticleStatus: draft, published, archived, deprecated
 // VerificationStatus: verified, partial, pending, failed, deprecated
 
@@ -79,7 +79,7 @@ model Article {
   title             String    // JSON string: LocalizedString
   summary           String    // JSON string: LocalizedString
   content           String    // JSON string: LocalizedString
-  domain            String    // agent, mcp, skill
+  domain            String    // agent, mcp, skill, foundation, transport, tools_filesystem, tools_postgres, tools_github, error_codes, scenarios
   tags              String    // JSON string: string[]
   codeBlocks        String    @map("code_blocks") // JSON string: CodeBlock[]
   metadata          String    // JSON string: ArticleMetadata

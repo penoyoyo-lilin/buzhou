@@ -23,8 +23,16 @@ const updateArticleRequestSchema = z.object({
     zh: z.string().min(1),
     en: z.string().min(1),
   }).optional(),
-  domain: z.enum(['agent', 'mcp', 'skill']).optional(),
+  domain: z.enum([
+    // 原有领域分类
+    'agent', 'mcp', 'skill',
+    // MVP 内容分类
+    'foundation', 'transport',
+    'tools_filesystem', 'tools_postgres', 'tools_github',
+    'error_codes', 'scenarios'
+  ]).optional(),
   tags: z.array(z.string()).optional(),
+  keywords: z.array(z.string()).optional(),
   codeBlocks: z.array(z.any()).optional(),
   metadata: z.any().optional(),
   qaPairs: z.array(z.any()).optional(),

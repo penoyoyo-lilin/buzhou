@@ -7,3 +7,11 @@ export { FilterBar } from './filter-bar'
 export { LanguageSwitcher } from './language-switcher'
 export { DataWall } from './data-wall'
 export { ArticleViewTabs } from './article-view-tabs'
+export {
+  SchemaOrg,
+  getOrganizationSchema,
+  getWebsiteSchema,
+  getArticleSchema,
+  getTechArticleSchema,
+  getAPIReferenceSchema
+} from './schema-org'

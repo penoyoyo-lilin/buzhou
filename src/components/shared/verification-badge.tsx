@@ -38,20 +38,20 @@ interface DomainBadgeProps {
   className?: string
 }
 
-// 领域分类显示名称映射
-const domainDisplayNames: Record<ArticleDomain, string> = {
+// 领域分类显示名称映射（使用翻译 key）
+const domainTranslationKeys: Record<ArticleDomain, string> = {
   // 原有领域分类
-  agent: 'Agent',
-  mcp: 'MCP',
-  skill: 'Skill',
+  agent: 'filter.agent',
+  mcp: 'filter.mcp',
+  skill: 'filter.skill',
   // MVP 内容分类
-  foundation: 'Foundation',
-  transport: 'Transport',
-  'tools_filesystem': 'Filesystem',
-  'tools_postgres': 'Postgres',
-  'tools_github': 'GitHub',
-  'error_codes': 'Error',
-  scenarios: 'Scenario',
+  foundation: 'filter.foundation',
+  transport: 'filter.transport',
+  'tools_filesystem': 'filter.toolsFilesystem',
+  'tools_postgres': 'filter.toolsPostgres',
+  'tools_github': 'filter.toolsGithub',
+  'error_codes': 'filter.errorCodes',
+  scenarios: 'filter.scenarios',
 }
 
 // 领域分类徽章变体映射（映射到现有 Badge variant）
@@ -71,7 +71,7 @@ const domainVariants: Record<ArticleDomain, 'agent' | 'mcp' | 'skill' | 'default
 export function DomainBadge({ domain, locale = 'zh', className }: DomainBadgeProps) {
   return (
     <Badge variant={domainVariants[domain]} className={className}>
-      {domainDisplayNames[domain]}
+      {t(locale, domainTranslationKeys[domain])}
     </Badge>
   )
 }

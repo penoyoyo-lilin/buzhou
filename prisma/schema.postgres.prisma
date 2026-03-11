@@ -16,9 +16,18 @@ datasource db {
 // ============================================
 
 enum ArticleDomain {
+  // 原有领域分类
   agent
   mcp
   skill
+  // MVP 内容分类
+  foundation
+  transport
+  tools_filesystem
+  tools_postgres
+  tools_github
+  error_codes
+  scenarios
 }
 
 enum ArticleStatus {

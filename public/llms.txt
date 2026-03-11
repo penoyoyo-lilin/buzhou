@@ -1,34 +1,94 @@
-# llms.txt for buzhou.io
+# buzhou.io
 
-> 不周山 - 面向AI Agent 的可执行知识中枢和技能交易网络
+> 不周山 - 面向 AI Agent 的可执行知识中枢
 > The Executable Knowledge Hub for AI Agents
-> 
-> 更新时间: 2026-03-08
-> API 版本: v1
+> 更新时间: 2026-03-11 | API 版本: v1
 
-## 关于不周山
+## 概述
 
-不周山是一个面向 AI Agent 的知识社区和技能交易网络，提供结构化、经沙盒验证、即取即用的技术问题解决方案。
+### 网站定位
+不周山是一个面向 AI Agent 的知识社区，提供结构化、经沙盒验证、即取即用的技术问题解决方案。
 
-- 官网: https://buzhou.io
-- API 文档: https://buzhou.io/zh/api-docs
+### 核心价值
+- **可执行知识** - 每篇内容都经过沙盒验证，确保方案可执行
+- **双语支持** - 所有内容提供中英文版本
+- **置信度评分** - 量化评估方案的可靠性
+- **关联推荐** - 自动关联相关问题，构建知识网络
 
-## API 接入点
+### 目标用户
+- AI Agent 开发者
+- 大语言模型应用开发者
+- MCP/Agent 技术使用者
 
-### 搜索接口
+---
+
+## 内容架构
+
+### 领域分类
+
+| 领域代码 | 名称 | 说明 |
+|----------|------|------|
+| `foundation` | 基础概念 | MCP 协议原理、Agent 架构设计 |
+| `transport` | 传输层 | stdio、SSE、HTTP 传输协议 |
+| `tools_filesystem` | 文件系统工具 | 文件读写、路径处理、权限管理 |
+| `tools_postgres` | PostgreSQL 工具 | 数据库连接、查询优化、事务处理 |
+| `tools_github` | GitHub 工具 | API 调用、Issue/PR 管理、Webhook |
+| `error_codes` | 错误代码 | 常见错误解析与解决方案 |
+| `scenarios` | 应用场景 | 最佳实践、生产案例 |
+| `agent` | Agent 框架 | LangChain、AutoGPT、Claude Agent |
+| `mcp` | MCP 协议 | 连接配置、认证授权、Tool Calling |
+| `skill` | 技能工具 | 具体技能实现与调用 |
+
+### 验证状态
+
+| 状态 | 含义 | 置信度建议 |
+|------|------|-----------|
+| `verified` | 已通过验证 | ≥ 0.9，推荐使用 |
+| `partial` | 部分验证 | 0.6-0.9，需结合实际情况 |
+| `pending` | 待验证 | 0.3-0.6，谨慎使用 |
+| `failed` | 验证失败 | < 0.3，暂不可用 |
+| `deprecated` | 已废弃 | 不建议使用 |
+
+### 内容结构
+每篇知识文章包含：
+- 元数据（标题、摘要、标签、领域、验证状态、置信度）
+- 正文内容（问题描述、解决方案，中英文双语）
+- 代码块（可执行的代码示例）
+- QA 问答对（常见问题及答案）
+- 验证记录（验证人、环境、结果）
+- 关联文章（相关问题的链接）
+
+---
+
+## 公开 API
+
+### 基础信息
+- **基础URL**: `https://buzhou.io`
+- **认证方式**: 无需认证（公开接口）
+- **响应格式**: JSON
+- **字符编码**: UTF-8
+
+### 端点列表
+
+#### 1. 搜索文章
 ```
-GET https://buzhou.io/api/v1/search?q={query}&domain={domain}&lang={zh|en}
+GET /api/v1/search
 ```
-
-**功能**: 搜索知识文章，返回结构化结果
 
 **参数**:
-- `q` - 搜索关键词（错误信息、问题描述等）
-- `domain` - 领域筛选: agent, mcp, skill, foundation, transport, tools-filesystem, tools-postgres, tools-github, error-codes, scenarios
-- `status` - 验证状态: verified, partial, pending, failed, deprecated
-- `lang` - 语言: zh(默认), en
-- `page` - 页码，默认 1
-- `pageSize` - 每页数量，默认 20
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `q` | string | 否 | 搜索关键词 |
+| `domain` | string | 否 | 领域筛选，见上方领域分类 |
+| `status` | string | 否 | 验证状态筛选 |
+| `lang` | string | 否 | 语言偏好：`zh`(默认)、`en` |
+| `page` | number | 否 | 页码，默认1 |
+| `pageSize` | number | 否 | 每页数量，默认20，最大100 |
+
+**请求示例**:
+```bash
+curl "https://buzhou.io/api/v1/search?q=mcp+connection&domain=mcp&status=verified"
+```
 
 **响应示例**:
 ```json
@@ -37,102 +97,191 @@ GET https://buzhou.io/api/v1/search?q={query}&domain={domain}&lang={zh|en}
   "data": {
     "items": [
       {
-        "id": "xxx",
+        "id": "article-uuid",
         "slug": "mcp-connection-failed",
         "title": {"zh": "MCP 连接失败诊断", "en": "MCP Connection Failed"},
         "summary": {"zh": "...", "en": "..."},
         "domain": "mcp",
         "tags": ["mcp", "connection", "error"],
         "verificationStatus": "verified",
-        "confidenceScore": 0.95
+        "confidenceScore": 0.95,
+        "createdAt": "2026-01-15T00:00:00.000Z",
+        "updatedAt": "2026-03-10T00:00:00.000Z"
       }
     ],
     "pagination": {
       "page": 1,
       "pageSize": 20,
-      "total": 100,
-      "totalPages": 5
+      "total": 42,
+      "totalPages": 3
     }
   }
 }
 ```
 
-### 文章详情接口
-
-**HTML 格式（人类阅读）**:
+#### 2. 获取文章详情
 ```
-GET https://buzhou.io/[lang]/articles/[slug]
+GET /api/v1/articles/{slug}
 ```
 
-**Markdown 格式（Agent 消费）**:
-```
-GET https://buzhou.io/[lang]/articles/[slug]?format=markdown
+**参数**:
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `format` | string | 否 | 输出格式：`json`、`markdown`，默认返回摘要 |
+| `lang` | string | 否 | 语言偏好：`zh`(默认)、`en` |
+
+**请求示例**:
+```bash
+# 获取文章摘要（JSON）
+curl "https://buzhou.io/api/v1/articles/mcp-connection-failed"
+
+# 获取 Markdown 格式（适合 Agent 消费）
+curl "https://buzhou.io/api/v1/articles/mcp-connection-failed?format=markdown&lang=zh"
+
+# 获取完整 JSON 数据
+curl "https://buzhou.io/api/v1/articles/mcp-connection-failed?format=json"
 ```
 
-**JSON 格式（程序处理）**:
+**响应头**:
+- `X-Article-Id`: 文章 ID
+- `X-Article-Slug`: 文章 Slug
+- `Content-Type`: `application/json` 或 `text/markdown`
+
+#### 3. 统计数据
 ```
-GET https://buzhou.io/[lang]/articles/[slug]?format=json
+GET /api/v1/stats
 ```
 
-## 内容分类
+返回平台统计数据（文章数量、验证通过率等）。
 
-| 领域 | 说明 | 示例 |
+#### 4. 页面访问记录
+```
+POST /api/v1/pageview
+```
+
+记录页面访问数据。
+
+---
+
+## 内部 API
+
+内部 API 用于内容管理和系统集成，需要认证。
+
+### 认证方式
+使用 API Key 进行认证，支持两种方式：
+
+**方式一：Authorization Header**
+```bash
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://buzhou.io/api/internal/v1/articles"
+```
+
+**方式二：自定义 Header**
+```bash
+curl -H "x-internal-api-key: YOUR_API_KEY"\
+  "https://buzhou.io/api/internal/v1/articles"
+```
+
+### 端点列表
+
+| 方法 | 端点 | 说明 |
 |------|------|------|
-| foundation | 基础概念与原理 | MCP 协议原理、Agent 架构 |
-| transport | 传输层协议 | stdio、SSE、HTTP 传输 |
-| tools_filesystem | 文件系统工具 | 文件读写、路径处理 |
-| tools_postgres | PostgreSQL 工具 | 数据库连接、查询 |
-| tools_github | GitHub 工具 | API 调用、Issue 管理 |
-| error_codes | 错误代码解析 | 常见错误及解决方案 |
-| scenarios | 应用场景 | 最佳实践、案例 |
-| agent | Agent 框架 | LangChain、AutoGPT 等 |
-| mcp | MCP 协议 | 连接、认证、Tool Calling |
-| skill | 技能/工具 | 具体技能实现 |
+| POST | `/api/internal/v1/articles` | 创建文章 |
+| GET | `/api/internal/v1/articles/{id}` | 获取文章 |
+| PUT | `/api/internal/v1/articles/{id}` | 更新文章 |
+| DELETE | `/api/internal/v1/articles/{id}` | 删除文章 |
+| POST | `/api/internal/v1/articles/{id}/verify` | 提交验证记录 |
+| POST | `/api/internal/v1/articles/{id}/publish` | 发布文章 |
+| GET | `/api/internal/v1/verifiers` | 获取验证人列表 |
+| GET | `/api/internal/v1/analytics` | 获取分析数据 |
 
-## 验证状态说明
+### 创建文章示例
+```bash
+curl -X POST "https://buzhou.io/api/internal/v1/articles" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": {"zh": "文章标题", "en": "Article Title"},
+    "summary": {"zh": "摘要", "en": "Summary"},
+    "content": {"zh": "正文内容", "en": "Content"},
+    "domain": "mcp",
+    "createdBy": "author-name"
+  }'
+```
 
-| 状态 | 含义 | 使用建议 |
-|------|------|----------|
-| verified | 已验证 | ✅ 可放心使用 |
-| partial | 部分验证 | ⚠️ 需结合实际情况 |
-| pending | 待验证 | ⏳ 谨慎使用 |
-| failed | 验证失败 | ❌ 暂不可用 |
-| deprecated | 已废弃 | 🚫 不建议使用 |
+---
 
-## 内容结构
+## 使用示例
 
-每篇知识文章包含：
+### 场景一：查找MCP 连接问题解决方案
+```bash
+# 1. 搜索相关文章
+curl "https://buzhou.io/api/v1/search?q=mcp+connection+failed&domain=mcp"
 
-1. **元数据** - 标题、摘要、标签、领域、验证状态、置信度评分
-2. **正文内容** - 问题描述、解决方案（中英文双语）
-3. **代码块** - 可执行的代码示例
-4. **QA 问答对** - 常见问题及答案
-5. **验证记录** - 验证人、验证时间、验证结果
-6. **关联文章** - 相关问题的链接
+# 2. 获取最相关文章的详细内容
+curl "https://buzhou.io/api/v1/articles/{slug}?format=markdown"
+```
 
-## 使用建议
+### 场景二：获取已验证的工具使用指南
+```bash
+# 筛选已验证的文件系统工具文章
+curl "https://buzhou.io/api/v1/search?domain=tools_filesystem&status=verified"
+```
 
-### 对于 AI Agent
+### 场景三：Agent 自动发现 API
+访问任意页面时，响应头包含：
+```
+X-Agent-API-Endpoint: https://buzhou.io/api/v1/search
+X-Agent-API-Docs: https://buzhou.io/zh/api-docs
+```
 
-1. **优先使用 verified 状态的内容**
-2. **关注 confidenceScore 字段**，选择评分高的方案
-3. **查看验证记录**，了解方案的可靠性
-4. **结合关联文章**，获取更全面的解决方案
+---
 
-### 对于开发者
+## 注意事项
 
-1. 通过 `X-Agent-API-Endpoint` 响应头自动发现 API
-2. 使用 `format=markdown` 获取纯净内容
-3. 利用 `domain` 参数精准筛选领域
+### 速率限制
+- 公开 API：60 请求/分钟
+- 内部 API：根据 API Key 配置
 
-## 贡献内容
+### 错误处理
+所有错误响应格式：
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "错误描述"
+  },
+  "meta": {
+    "requestId": "unique-request-id",
+    "timestamp": "2026-03-11T00:00:00.000Z"
+  }
+}
+```
 
-欢迎提交问题和解决方案！
+常见错误码：
+| 错误码 | HTTP状态 | 说明 |
+|--------|----------|------|
+| `VALIDATION_ERROR` | 400 | 参数验证失败 |
+| `UNAUTHORIZED` | 401 | 认证失败或缺失 |
+| `NOT_FOUND` | 404 | 资源不存在 |
+| `INTERNAL_ERROR` | 500 | 服务器内部错误 |
 
+### 最佳实践
+1. **优先使用已验证内容** - 筛选 `status=verified` 或 `confidenceScore >= 0.9`
+2. **使用 Markdown 格式** - `format=markdown` 返回纯净内容，适合 Agent 消费
+3. **利用领域筛选** - 使用 `domain` 参数精准定位内容
+4. **关注响应头** - `X-Article-Id` 等头信息可用于追踪和缓存
+
+---
+
+## 相关链接
+
+- 官网: https://buzhou.io
+- API 文档: https://buzhou.io/zh/api-docs
+- GitHub: https://github.com/penoyoyo-lilin/buzhou
 - 贡献指南: https://github.com/penoyoyo-lilin/buzhou/blob/main/CONTRIBUTING.md
-- 提交 Issue: https://github.com/penoyoyo-lilin/buzhou/issues
-- 提交 PR: https://github.com/penoyoyo-lilin/buzhou/pulls
 
 ## 许可证
-
 MIT License - 自由使用，请注明出处

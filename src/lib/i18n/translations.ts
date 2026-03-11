@@ -31,9 +31,19 @@ type TranslationDict = {
     all: string
     domain: string
     status: string
+    // 原有分类
     agent: string
     mcp: string
     skill: string
+    // MVP 内容分类
+    foundation: string
+    transport: string
+    toolsFilesystem: string
+    toolsPostgres: string
+    toolsGithub: string
+    errorCodes: string
+    scenarios: string
+    // 验证状态
     verified: string
     partial: string
     pending: string
@@ -188,11 +198,21 @@ export const translations: Record<Locale, TranslationDict> = {
     // 筛选
     filter: {
       all: '全部',
-      domain: '领域',
+      domain: '分类',
       status: '状态',
+      // 原有分类
       agent: 'Agent',
       mcp: 'MCP',
       skill: 'Skill',
+      // MVP 内容分类
+      foundation: '基础认知与协议',
+      transport: '连接与协议层排错',
+      toolsFilesystem: '工具：文件系统',
+      toolsPostgres: '工具：数据库',
+      toolsGithub: '工具：代码仓库',
+      errorCodes: '通用错误码库',
+      scenarios: '实战案例',
+      // 验证状态
       verified: '已验证',
       partial: '部分验证',
       pending: '待验证',
@@ -353,11 +373,21 @@ export const translations: Record<Locale, TranslationDict> = {
     // Filter
     filter: {
       all: 'All',
-      domain: 'Domain',
+      domain: 'Category',
       status: 'Status',
+      // Original categories
       agent: 'Agent',
       mcp: 'MCP',
       skill: 'Skill',
+      // MVP content categories
+      foundation: 'Foundation',
+      transport: 'Transport',
+      toolsFilesystem: 'Tools: Filesystem',
+      toolsPostgres: 'Tools: Database',
+      toolsGithub: 'Tools: Repository',
+      errorCodes: 'Error Codes',
+      scenarios: 'Scenarios',
+      // Verification status
       verified: 'Verified',
       partial: 'Partial',
       pending: 'Pending',

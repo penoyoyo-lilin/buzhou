@@ -1,12 +1,25 @@
 import { CodeBlock } from '@/components/ui/code-block'
 import { Badge } from '@/components/ui/badge'
+import { SchemaOrg, getAPIReferenceSchema } from '@/components/shared/schema-org'
 import { t, type Locale } from '@/lib/i18n/translations'
 
 export default function ApiDocsPage({ params }: { params: { lang: Locale } }) {
   const { lang } = params
 
+  // API Reference Schema
+  const apiSchema = getAPIReferenceSchema({
+    name: 'Buzhou API',
+    description: '面向 AI Agent 的 REST API，提供结构化知识检索服务',
+    url: 'https://buzhou.io/api/v1',
+    documentationUrl: 'https://buzhou.io/api-docs'
+  })
+
   return (
-    <div className="container py-8 max-w-4xl">
+    <>
+      {/* Schema.org 结构化数据 */}
+      <SchemaOrg data={apiSchema} />
+
+      <div className="container py-8 max-w-4xl">
       <h1 className="text-3xl font-bold mb-6">{t(lang, 'apiDocs.title')}</h1>
 
       {/* 概述 */}
@@ -268,5 +281,6 @@ export default function ApiDocsPage({ params }: { params: { lang: Locale } }) {
         </table>
       </section>
     </div>
+    </>
   )
 }

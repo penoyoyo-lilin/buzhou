@@ -7,6 +7,7 @@ import { FilterBar } from '@/components/shared/filter-bar'
 import { ArticleList } from '@/components/shared/article-card'
 import { DataWall } from '@/components/shared/data-wall'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SchemaOrg, getOrganizationSchema, getWebsiteSchema } from '@/components/shared/schema-org'
 import { t, type Locale } from '@/lib/i18n/translations'
 import type { ArticleDomain, VerificationStatus, Article } from '@/types'
 
@@ -152,8 +153,12 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   }, [lang, router])
 
   return (
-    <div className="container py-8">
-      {/* Hero 区 */}
+    <>
+      {/* Schema.org 结构化数据 */}
+      <SchemaOrg data={[getOrganizationSchema(), getWebsiteSchema()]} />
+
+      <div className="container py-8">
+        {/* Hero 区 */}
       <section className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
           {t(lang, 'home.title')}
@@ -204,6 +209,7 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
         )}
       </section>
     </div>
+    </>
   )
 }
 

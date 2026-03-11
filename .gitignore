@@ -42,3 +42,6 @@ next-env.d.ts
 *.swp
 *.swo
 .env*.local
+docs/INTERNAL_API_DEV.md
+docs/INTERNAL_API_DEV.md
+prisma/data/buzhou.db

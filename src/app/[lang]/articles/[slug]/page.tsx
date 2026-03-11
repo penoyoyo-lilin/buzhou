@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { VerificationBadge, DomainBadge, RiskBadge } from '@/components/shared/verification-badge'
 import { VerificationTimeline } from '@/components/shared/verification-timeline'
 import { ArticleViewTabs } from '@/components/shared/article-view-tabs'
+import { SchemaOrg, getArticleSchema, getTechArticleSchema } from '@/components/shared/schema-org'
 import { articleService } from '@/services/article.service'
 import { formatDateTime, cn } from '@/lib/utils'
 import { t, type Locale } from '@/lib/i18n/translations'
@@ -52,6 +53,29 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
   // 生成 Markdown 和 JSON 内容
   const markdownContent = renderService.toMarkdown(article, lang)
   const jsonContent = renderService.toJsonResponse(article, lang)
+
+  // 构建 Schema.org 结构化数据
+  const articleUrl = `https://buzhou.io/${lang}/articles/${slug}`
+  const publishedDate = article.publishedAt || article.createdAt
+
+  const articleSchemas = [
+    getArticleSchema({
+      title,
+      description: summary,
+      url: articleUrl,
+      datePublished: publishedDate,
+      dateModified: article.updatedAt
+    }),
+    getTechArticleSchema({
+      title,
+      description: summary,
+      url: articleUrl,
+      datePublished: publishedDate,
+      dateModified: article.updatedAt,
+      dependencies: article.metadata.runtimeEnv?.map(e => `${e.name} ${e.version}`),
+      proficiencyLevel: 'Intermediate'
+    })
+  ]
 
   // HTML 内容组件
   const htmlContent = (
@@ -130,7 +154,11 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
   )
 
   return (
-    <article className="container py-8">
+    <>
+      {/* Schema.org 结构化数据 */}
+      <SchemaOrg data={articleSchemas} />
+
+      <article className="container py-8">
       {/* 头部 */}
       <header className="mb-8">
         {/* 面包屑 */}
@@ -270,5 +298,6 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
         </aside>
       </div>
     </article>
+    </>
   )
 }
