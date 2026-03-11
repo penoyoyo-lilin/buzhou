@@ -37,20 +37,27 @@ export function FilterBar({ lang = 'zh' }: FilterBarProps) {
 
   return (
     <div className="flex flex-wrap gap-4">
-      {/* 领域筛选 */}
+      {/* 分类筛选 */}
       <div className="w-40">
         <Select
           value={currentDomain || 'all'}
           onValueChange={(value) => updateFilter('domain', value === 'all' ? null : value)}
         >
           <SelectTrigger>
-            <SelectValue placeholder={lang === 'zh' ? '全部领域' : 'All Domains'} />
+            <SelectValue placeholder={lang === 'zh' ? '全部分类' : 'All Categories'} />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{lang === 'zh' ? '全部领域' : 'All Domains'}</SelectItem>
-            <SelectItem value="agent">{t(lang, 'filter.agent')}</SelectItem>
-            <SelectItem value="mcp">{t(lang, 'filter.mcp')}</SelectItem>
-            <SelectItem value="skill">{t(lang, 'filter.skill')}</SelectItem>
+            <SelectContent>
+              <SelectItem value="all">{lang === 'zh' ? '全部分类' : 'All Categories'}</SelectItem>
+              <SelectItem value="agent">{t(lang, 'filter.agent')}</SelectItem>
+              <SelectItem value="mcp">{t(lang, 'filter.mcp')}</SelectItem>
+              <SelectItem value="skill">{t(lang, 'filter.skill')}</SelectItem>
+              <SelectItem value="foundation">{t(lang, 'filter.foundation')}</SelectItem>
+              <SelectItem value="transport">{t(lang, 'filter.transport')}</SelectItem>
+              <SelectItem value="tools_filesystem">{t(lang, 'filter.tools_filesystem')}</SelectItem>
+            <SelectItem value="tools_postgres">{t(lang, 'filter.tools_postgres')}</SelectItem>
+            <SelectItem value="tools_github">{t(lang, 'filter.tools_github')}</SelectItem>
+            <SelectItem value="error_codes">{t(lang, 'filter.error_codes')}</SelectItem>
+            <SelectItem value="scenarios">{t(lang, 'filter.scenarios')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

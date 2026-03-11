@@ -31,17 +31,17 @@ type TranslationDict = {
     all: string
     domain: string
     status: string
-    // 原有分类
+    // 基础领域分类
     agent: string
     mcp: string
     skill: string
     // MVP 内容分类
     foundation: string
     transport: string
-    toolsFilesystem: string
-    toolsPostgres: string
-    toolsGithub: string
-    errorCodes: string
+    tools_filesystem: string
+    tools_postgres: string
+    tools_github: string
+    error_codes: string
     scenarios: string
     // 验证状态
     verified: string
@@ -86,6 +86,7 @@ type TranslationDict = {
     apiCalls: string
   }
   verification: {
+    verified: string
     passed: string
     failed: string
     partial: string
@@ -200,17 +201,17 @@ export const translations: Record<Locale, TranslationDict> = {
       all: '全部',
       domain: '分类',
       status: '状态',
-      // 原有分类
+      // 基础领域分类
       agent: 'Agent',
       mcp: 'MCP',
       skill: 'Skill',
       // MVP 内容分类
       foundation: '基础认知与协议',
       transport: '连接与协议层排错',
-      toolsFilesystem: '工具：文件系统',
-      toolsPostgres: '工具：数据库',
-      toolsGithub: '工具：代码仓库',
-      errorCodes: '通用错误码库',
+      tools_filesystem: '工具：文件系统',
+      tools_postgres: '工具：数据库',
+      tools_github: '工具：代码仓库',
+      error_codes: '通用错误码库',
       scenarios: '实战案例',
       // 验证状态
       verified: '已验证',
@@ -263,6 +264,7 @@ export const translations: Record<Locale, TranslationDict> = {
 
     // 验证相关
     verification: {
+      verified: '已验证',
       passed: '通过',
       failed: '失败',
       partial: '部分通过',
@@ -330,8 +332,8 @@ export const translations: Record<Locale, TranslationDict> = {
       httpStatus: 'HTTP 状态',
       paramQ: '搜索关键词',
       paramQDesc: '搜索关键词',
-      paramDomain: '领域筛选（agent/mcp/skill）',
-      paramDomainDesc: '领域筛选（agent/mcp/skill）',
+      paramDomain: '领域筛选（支持 agent/mcp/skill/foundation/transport/tools_filesystem/tools_postgres/tools_github/error_codes/scenarios）',
+      paramDomainDesc: '领域筛选（使用下划线命名，如 tools_filesystem）',
       paramStatus: '验证状态筛选',
       paramStatusDesc: '验证状态筛选',
       paramPage: '页码，默认 1',
@@ -375,17 +377,17 @@ export const translations: Record<Locale, TranslationDict> = {
       all: 'All',
       domain: 'Category',
       status: 'Status',
-      // Original categories
+      // Base categories
       agent: 'Agent',
       mcp: 'MCP',
       skill: 'Skill',
       // MVP content categories
       foundation: 'Foundation',
       transport: 'Transport',
-      toolsFilesystem: 'Tools: Filesystem',
-      toolsPostgres: 'Tools: Database',
-      toolsGithub: 'Tools: Repository',
-      errorCodes: 'Error Codes',
+      tools_filesystem: 'Tools: Filesystem',
+      tools_postgres: 'Tools: Database',
+      tools_github: 'Tools: Repository',
+      error_codes: 'Error Codes',
       scenarios: 'Scenarios',
       // Verification status
       verified: 'Verified',
@@ -438,6 +440,7 @@ export const translations: Record<Locale, TranslationDict> = {
 
     // Verification
     verification: {
+      verified: 'Verified',
       passed: 'Passed',
       failed: 'Failed',
       partial: 'Partial',
@@ -505,8 +508,8 @@ export const translations: Record<Locale, TranslationDict> = {
       httpStatus: 'HTTP Status',
       paramQ: 'Search keyword',
       paramQDesc: 'Search keyword',
-      paramDomain: 'Domain filter (agent/mcp/skill)',
-      paramDomainDesc: 'Domain filter (agent/mcp/skill)',
+      paramDomain: 'Domain filter (agent/mcp/skill/foundation/transport/tools_filesystem/tools_postgres/tools_github/error_codes/scenarios)',
+      paramDomainDesc: 'Domain filter (use underscore naming, e.g. tools_filesystem)',
       paramStatus: 'Verification status filter',
       paramStatusDesc: 'Verification status filter',
       paramPage: 'Page number, default 1',

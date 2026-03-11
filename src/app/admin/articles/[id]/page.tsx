@@ -55,6 +55,20 @@ interface RelatedArticle {
   slug: string
 }
 
+// 分类显示名称
+const DOMAIN_LABELS: Record<ArticleDomain, string> = {
+  agent: 'Agent',
+  mcp: 'MCP',
+  skill: 'Skill',
+  foundation: '基础认知与协议',
+  transport: '连接与协议层排错',
+  tools_filesystem: '工具：文件系统',
+  tools_postgres: '工具：数据库',
+  tools_github: '工具：代码仓库',
+  error_codes: '通用错误码库',
+  scenarios: '实战案例',
+}
+
 export default function ArticleEditPage() {
   const router = useRouter()
   const params = useParams()
@@ -72,7 +86,7 @@ export default function ArticleEditPage() {
     summaryEn: '',
     contentZh: '',
     contentEn: '',
-    domain: 'agent' as ArticleDomain,
+    domain: 'foundation' as ArticleDomain,
     status: 'draft' as ArticleStatus,
     tags: [] as string[],
     tagInput: '',
@@ -533,7 +547,7 @@ export default function ArticleEditPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="domain">领域</Label>
+              <Label htmlFor="domain">分类</Label>
               <select
                 id="domain"
                 value={article.domain}
@@ -543,6 +557,13 @@ export default function ArticleEditPage() {
                 <option value="agent">Agent</option>
                 <option value="mcp">MCP</option>
                 <option value="skill">Skill</option>
+                <option value="foundation">基础认知与协议</option>
+                <option value="transport">连接与协议层排错</option>
+                <option value="tools_filesystem">工具：文件系统</option>
+                <option value="tools_postgres">工具：数据库</option>
+                <option value="tools_github">工具：代码仓库</option>
+                <option value="error_codes">通用错误码库</option>
+                <option value="scenarios">实战案例</option>
               </select>
             </div>
           </div>

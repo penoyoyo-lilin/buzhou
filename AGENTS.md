@@ -78,5 +78,5 @@
     - **运行 seed**：SQLite 用 `.env`，PostgreSQL 用 `.env.local` 的环境变量
 
 30. 修改（edit）文件之前要先读取（read）文件
-
+31. `AGENTS.md` 仅保留长期协作规则，不记录任务拆解、范围、依赖、验收标准等方案性内容；这类内容可以考虑写入独立的任务方案文档（如 `docs/task-plans/*.md`）。
 

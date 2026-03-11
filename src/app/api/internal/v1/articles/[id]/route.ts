@@ -24,7 +24,7 @@ const updateArticleRequestSchema = z.object({
     en: z.string().min(1),
   }).optional(),
   domain: z.enum([
-    // 原有领域分类
+    // 基础领域分类
     'agent', 'mcp', 'skill',
     // MVP 内容分类
     'foundation', 'transport',

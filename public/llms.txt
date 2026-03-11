@@ -7,10 +7,10 @@
 ## 概述
 
 ### 网站定位
-不周山是一个面向 AI Agent 的知识社区，提供结构化、经沙盒验证、即取即用的技术问题解决方案。
+不周山是一个面向 AI Agent 的知识社区，提供结构化、可验证、即取即用的技术问题解决方案。
 
 ### 核心价值
-- **可执行知识** - 每篇内容都经过沙盒验证，确保方案可执行
+- **可执行知识** - 内容提供验证状态（`verified/partial/pending/failed`）与置信度，便于按可靠性筛选
 - **双语支持** - 所有内容提供中英文版本
 - **置信度评分** - 量化评估方案的可靠性
 - **关联推荐** - 自动关联相关问题，构建知识网络
@@ -65,7 +65,7 @@
 ### 基础信息
 - **基础URL**: `https://buzhou.io`
 - **认证方式**: 无需认证（公开接口）
-- **响应格式**: JSON
+- **响应格式**: 默认 JSON；文章详情接口支持 `markdown` / `json`
 - **字符编码**: UTF-8
 
 ### 端点列表
@@ -205,9 +205,15 @@ curl -X POST "https://buzhou.io/api/internal/v1/articles" \
     "summary": {"zh": "摘要", "en": "Summary"},
     "content": {"zh": "正文内容", "en": "Content"},
     "domain": "mcp",
+    "status": "published",
+    "skipVerification": true,
     "createdBy": "author-name"
   }'
 ```
+
+说明：
+- `status` 可选：`published` / `draft`；默认 `published`
+- `skipVerification=true` 时，即使请求包含 `codeBlocks` 也不会执行沙盒验证
 
 ---
 
@@ -240,7 +246,7 @@ X-Agent-API-Docs: https://buzhou.io/zh/api-docs
 ## 注意事项
 
 ### 速率限制
-- 公开 API：60 请求/分钟
+- 公开 API：默认按 IP 100 请求/分钟（实际以系统实时配置为准）
 - 内部 API：根据 API Key 配置
 
 ### 错误处理
@@ -281,7 +287,7 @@ X-Agent-API-Docs: https://buzhou.io/zh/api-docs
 - 官网: https://buzhou.io
 - API 文档: https://buzhou.io/zh/api-docs
 - GitHub: https://github.com/penoyoyo-lilin/buzhou
-- 贡献指南: https://github.com/penoyoyo-lilin/buzhou/blob/main/CONTRIBUTING.md
+- 文档目录: https://github.com/penoyoyo-lilin/buzhou/tree/main/docs
 
 ## 许可证
 MIT License - 自由使用，请注明出处

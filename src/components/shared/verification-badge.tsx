@@ -38,33 +38,33 @@ interface DomainBadgeProps {
   className?: string
 }
 
-// 领域分类显示名称映射（使用翻译 key）
+// 分类显示名称映射（使用翻译 key）
 const domainTranslationKeys: Record<ArticleDomain, string> = {
-  // 原有领域分类
+  // 基础领域分类
   agent: 'filter.agent',
   mcp: 'filter.mcp',
   skill: 'filter.skill',
   // MVP 内容分类
   foundation: 'filter.foundation',
   transport: 'filter.transport',
-  'tools_filesystem': 'filter.toolsFilesystem',
-  'tools_postgres': 'filter.toolsPostgres',
-  'tools_github': 'filter.toolsGithub',
-  'error_codes': 'filter.errorCodes',
+  tools_filesystem: 'filter.tools_filesystem',
+  tools_postgres: 'filter.tools_postgres',
+  tools_github: 'filter.tools_github',
+  error_codes: 'filter.error_codes',
   scenarios: 'filter.scenarios',
 }
 
-// 领域分类徽章变体映射（映射到现有 Badge variant）
-const domainVariants: Record<ArticleDomain, 'agent' | 'mcp' | 'skill' | 'default' | 'secondary'> = {
-  agent: 'agent',
-  mcp: 'mcp',
+// 分类徽章变体映射（映射到现有 Badge variant）
+const domainVariants: Record<ArticleDomain, 'default' | 'secondary' | 'skill'> = {
+  agent: 'secondary',
+  mcp: 'secondary',
   skill: 'skill',
   foundation: 'default',
   transport: 'secondary',
-  'tools_filesystem': 'default',
-  'tools_postgres': 'default',
-  'tools_github': 'default',
-  'error_codes': 'secondary',
+  tools_filesystem: 'default',
+  tools_postgres: 'default',
+  tools_github: 'default',
+  error_codes: 'secondary',
   scenarios: 'skill',
 }
 

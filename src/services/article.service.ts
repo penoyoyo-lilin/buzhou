@@ -119,8 +119,12 @@ export class ArticleService {
     const cached = await getCache<Article>(cacheKey)
     if (cached) return cached
 
-    const article = await prisma.article.findUnique({
-      where: { slug },
+    // 公开访问场景仅返回已发布文章，避免通过 slug 读取草稿/归档内容
+    const article = await prisma.article.findFirst({
+      where: {
+        slug,
+        status: 'published',
+      },
       include: {
         verificationRecords: {
           orderBy: { verifiedAt: 'desc' },

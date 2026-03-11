@@ -10,6 +10,7 @@ import { articleService } from '@/services/article.service'
 import { formatDateTime, cn } from '@/lib/utils'
 import { t, type Locale } from '@/lib/i18n/translations'
 import { renderService } from '@/services/render.service'
+import { getPublishedDisplayDate } from './meta-utils'
 
 interface ArticlePageProps {
   params: {
@@ -56,7 +57,7 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
 
   // 构建 Schema.org 结构化数据
   const articleUrl = `https://buzhou.io/${lang}/articles/${slug}`
-  const publishedDate = article.publishedAt || article.createdAt
+  const publishedDate = getPublishedDisplayDate(article)
 
   const articleSchemas = [
     getArticleSchema({
@@ -184,7 +185,7 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
 
         {/* 元数据 */}
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-          <span>{t(lang, 'article.publishedAt')} {formatDateTime(article.createdAt)}</span>
+          <span>{t(lang, 'article.publishedAt')} {formatDateTime(publishedDate)}</span>
           {article.updatedAt !== article.createdAt && (
             <span>{t(lang, 'article.updatedAt')} {formatDateTime(article.updatedAt)}</span>
           )}

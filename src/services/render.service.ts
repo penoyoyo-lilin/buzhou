@@ -328,14 +328,14 @@ export class RenderService {
     markdown += `|--------|----------|\n`
     markdown += `| JSON | \`/api/v1/articles/${article.slug}?format=json\` |\n`
     markdown += `| Markdown | \`/api/v1/articles/${article.slug}?format=markdown\` |\n`
-    markdown += `| Search | \`/api/v1/search?slug=${article.slug}\` |\n`
+    markdown += `| Search | \`/api/v1/search?q=${encodeURIComponent(article.slug)}\` |\n`
     markdown += `\n### Example Usage\n\n`
     markdown += `\`\`\`bash\n`
     markdown += `# Get this article in JSON format\n`
-    markdown += `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=json"\n`
+    markdown += `curl "https://buzhou.io/api/v1/articles/${article.slug}?format=json"\n`
     markdown += `\n`
     markdown += `# Get this article in Markdown format\n`
-    markdown += `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=markdown"\n`
+    markdown += `curl "https://buzhou.io/api/v1/articles/${article.slug}?format=markdown"\n`
     markdown += `\`\`\`\n`
 
     return markdown
@@ -405,11 +405,11 @@ export class RenderService {
       // API 接入引导
       apiAccess: {
         endpoints: {
-          search: `/api/v1/search?slug=${article.slug}`,
+          search: `/api/v1/search?q=${encodeURIComponent(article.slug)}`,
           json: `/api/v1/articles/${article.slug}?format=json&lang=${lang}`,
           markdown: `/api/v1/articles/${article.slug}?format=markdown&lang=${lang}`,
         },
-        exampleUsage: `curl "https://buzhou.ai/api/v1/articles/${article.slug}?format=json&lang=${lang}"`,
+        exampleUsage: `curl "https://buzhou.io/api/v1/articles/${article.slug}?format=json&lang=${lang}"`,
       },
     }
 

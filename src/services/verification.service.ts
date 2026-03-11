@@ -69,7 +69,7 @@ export class VerificationService {
         articleId: data.articleId,
         verifierId: data.verifierId,
         result: data.result,
-        environment: toJsonValue(data.environment),
+        environment: toJsonValue(data.environment) as any,
         notes: data.notes || null,
       },
       include: {

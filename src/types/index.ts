@@ -11,11 +11,11 @@ export interface LocalizedString {
 }
 
 /**
- * 文章领域分类
- * 注意：Prisma 枚举不支持连字符，使用下划线
+ * 文章分类
+ * 注意：统一使用下划线格式，和公开 API / Prisma 枚举约定保持一致
  */
 export type ArticleDomain =
-  // 原有领域分类
+  // 基础领域分类
   | 'agent' | 'mcp' | 'skill'
   // MVP 内容分类
   | 'foundation' | 'transport'

@@ -3,6 +3,14 @@
 import { AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
+
+export function getLocaleHomePath(lang?: string): string {
+  if (lang === 'zh' || lang === 'en') {
+    return `/${lang}`
+  }
+  return '/'
+}
 
 export default function ArticleError({
   error,
@@ -11,6 +19,9 @@ export default function ArticleError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const params = useParams<{ lang?: string }>()
+  const homeHref = getLocaleHomePath(params?.lang)
+
   return (
     <article className="container py-8">
       <div className="text-center py-16">
@@ -20,7 +31,7 @@ export default function ArticleError({
         <div className="flex justify-center gap-4">
           <Button onClick={reset}>重试</Button>
           <Button variant="outline" asChild>
-            <Link href="/">返回首页</Link>
+            <Link href={homeHref}>返回首页</Link>
           </Button>
         </div>
       </div>

@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-  "dev": "next dev",
+  "dev": "npm run dev:sqlite",
+    "dev:sqlite": "[ -f .env.local ] && mv .env.local .env.local.bak; cp prisma/schema.sqlite.prisma prisma/schema.prisma && prisma generate && rm -rf .next && next dev",
+    "dev:postgres": "[ -f .env.local.bak ] && mv .env.local.bak .env.local; cp prisma/schema.postgres.prisma prisma/schema.prisma && prisma generate && rm -rf .next && next dev",
   "dev:clean": "rm -rf .next && next dev",
   "build": "next build",
   "vercel-build": "cp prisma/schema.postgres.prisma prisma/schema.prisma && prisma generate && next build",

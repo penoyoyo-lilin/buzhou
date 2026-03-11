@@ -79,4 +79,56 @@
 
 30. 修改（edit）文件之前要先读取（read）文件
 
+31. **Internal API 密钥管理**：
+    - 密钥存储在数据库 `system_configs` 表中，Admin 后台生成的密钥优先级最高
+    - 重新生成密钥后，旧密钥立即失效，必须更新所有调用方
+    - 认证时优先从数据库获取密钥，环境变量 `INTERNAL_API_KEY` 仅作为后备
+
+32. **生产环境域名**：
+    - 正确域名：`www.buzhou.io`
+    - `www.buzhou.ai` 是域名转发服务，不指向 Vercel 服务器
+    - API 调用必须使用 `https://www.buzhou.io/api/...`
+
+33. **llms.txt 文档维护**：
+    - 文档中的 API 参数必须与代码实现一致
+    - domain 参数使用下划线格式：`tools_filesystem`、`tools_postgres`、`tools_github`
+    - 文档描述的功能是公开承诺，发现不一致时应修复代码而非降低文档预期
+
+34. **开发环境启动命令**：
+    - 使用 `npm run dev` 启动（默认 SQLite）
+    - 已配置自动切换 schema 和清理缓存，无需手动操作
+    - 连接生产数据库使用 `npm run dev:postgres`
+    - 不再需要手动执行 `cp schema` 或 `rm -rf .next`
+
+35. **环境变量优先级**：
+    - `.env.local` 优先级高于 `.env`
+    - 开发时如需使用 SQLite，需确保 `.env.local` 不存在或不含 PostgreSQL 的 `DATABASE_URL`
+    - 生产部署前确保 `.env.local` 配置正确
+
+31. **Internal API 密钥管理**：
+    - 密钥存储在数据库 `system_configs` 表中，Admin 后台生成的密钥优先级最高
+    - 重新生成密钥后，旧密钥立即失效，必须更新所有调用方
+    - 认证时优先从数据库获取密钥，环境变量 `INTERNAL_API_KEY` 仅作为后备
+
+32. **生产环境域名**：
+    - 正确域名：`www.buzhou.io`
+    - `www.buzhou.ai` 是域名转发服务，不指向 Vercel 服务器
+    - API 调用必须使用 `https://www.buzhou.io/api/...`
+
+33. **llms.txt 文档维护**：
+    - 文档中的 API 参数必须与代码实现一致
+    - domain 参数使用下划线格式：`tools_filesystem`、`tools_postgres`、`tools_github`
+    - 文档描述的功能是公开承诺，发现不一致时应修复代码而非降低文档预期
+
+34. **开发环境启动命令**：
+    - 使用 `npm run dev` 启动（默认 SQLite）
+    - 已配置自动切换 schema 和清理缓存，无需手动操作
+    - 连接生产数据库使用 `npm run dev:postgres`
+    - 不再需要手动执行 `cp schema` 或 `rm -rf .next`
+
+35. **环境变量优先级**：
+    - `.env.local` 优先级高于 `.env`
+    - 开发时如需使用 SQLite，需确保 `.env.local` 不存在或不含 PostgreSQL 的 `DATABASE_URL`
+    - 生产部署前确保 `.env.local` 配置正确
+
 

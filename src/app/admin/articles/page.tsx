@@ -197,7 +197,7 @@ export default function ArticlesPage() {
     },
     {
       key: 'domain',
-      header: '领域',
+      header: '分类',
       render: (row) => (
         <Badge variant="outline">{row.domain}</Badge>
       ),
@@ -276,10 +276,17 @@ export default function ArticlesPage() {
           }}
           className="border rounded-md px-3 py-2 text-sm"
         >
-          <option value="">全部领域</option>
+          <option value="">全部分类</option>
           <option value="agent">Agent</option>
           <option value="mcp">MCP</option>
           <option value="skill">Skill</option>
+          <option value="foundation">基础认知与协议</option>
+          <option value="transport">连接与协议层排错</option>
+          <option value="tools_filesystem">工具：文件系统</option>
+          <option value="tools_postgres">工具：数据库</option>
+          <option value="tools_github">工具：代码仓库</option>
+          <option value="error_codes">通用错误码库</option>
+          <option value="scenarios">实战案例</option>
         </select>
       </div>
 

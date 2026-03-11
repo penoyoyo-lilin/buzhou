@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         type,
         name,
         description: description || '',
-        credentials: toJsonValue({ verified: false }),
+        credentials: toJsonValue({ verified: false }) as any,
         reputationScore: 0,
         reputationLevel: 'beginner',
         totalVerifications: 0,

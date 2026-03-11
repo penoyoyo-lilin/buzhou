@@ -40,7 +40,7 @@ const createArticleRequestSchema = z.object({
     en: z.string().min(1),
   }),
   domain: z.enum([
-    // 原有领域分类
+    // 基础领域分类
     'agent', 'mcp', 'skill',
     // MVP 内容分类
     'foundation', 'transport',
@@ -55,6 +55,7 @@ const createArticleRequestSchema = z.object({
   qaPairs: z.array(z.any()).optional(),
   relatedIds: z.array(z.string()).optional(),
   createdBy: z.string().min(1),
+  status: z.enum(['draft', 'published']).optional().default('published'),
   skipVerification: z.boolean().optional(),
   // 新增：验证记录
   verificationRecords: z.array(verificationRecordSchema).optional(),
@@ -84,9 +85,10 @@ export async function POST(request: NextRequest) {
       try {
         // 验证输入
         const validated = createArticleRequestSchema.parse(item)
+        const shouldSkipVerification = validated.skipVerification === true
 
         // 沙盒验证（可选跳过）
-        if (!validated.skipVerification) {
+        if (!shouldSkipVerification) {
           const tempArticle = {
             id: 'temp',
             slug: validated.slug || '',
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
             relatedIds: validated.relatedIds || [],
             verificationStatus: 'pending' as const,
             verificationRecords: [],
-            status: 'draft' as const,
+            status: validated.status,
             createdBy: validated.createdBy,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -120,8 +122,28 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 创建文章
-        const article = await articleService.create(validated as CreateArticleData)
+        // 创建文章（先创建，再按目标状态决定是否发布）
+        const createData: CreateArticleData = {
+          slug: validated.slug,
+          title: validated.title,
+          summary: validated.summary,
+          content: validated.content,
+          domain: validated.domain,
+          priority: validated.priority,
+          tags: validated.tags,
+          keywords: validated.keywords,
+          codeBlocks: validated.codeBlocks,
+          metadata: validated.metadata,
+          qaPairs: validated.qaPairs,
+          relatedIds: validated.relatedIds,
+          createdBy: validated.createdBy,
+          skipVerification: shouldSkipVerification,
+        }
+
+        const createdArticle = await articleService.create(createData)
+        const article = validated.status === 'published'
+          ? await articleService.publish(createdArticle.id, validated.createdBy)
+          : createdArticle
 
         // 如果有验证记录，创建验证记录
         if (validated.verificationRecords && validated.verificationRecords.length > 0) {
@@ -143,7 +165,7 @@ export async function POST(request: NextRequest) {
             articleId: article.id,
             domain: validated.domain,
             createdBy: validated.createdBy,
-            status: 'draft',
+            status: article.status,
             needsQAGeneration: true,
             needsRelatedGeneration: true,
             needsKeywordsGeneration: true,
