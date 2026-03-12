@@ -10,6 +10,7 @@ const verifierCountMock = vi.fn()
 const pageViewFindManyMock = vi.fn()
 const apiRequestCountMock = vi.fn()
 const apiRequestFindManyMock = vi.fn()
+const agentFindManyMock = vi.fn()
 
 vi.mock('@/core/middleware/admin-auth', () => ({
   verifyAdminAuth: verifyAdminAuthMock,
@@ -20,7 +21,7 @@ vi.mock('@/core/db/client', () => ({
     article: { count: articleCountMock },
     pageViewLog: { count: pageViewCountMock, findMany: pageViewFindManyMock },
     apiRequestLog: { count: apiRequestCountMock, findMany: apiRequestFindManyMock },
-    agentApp: { count: agentCountMock },
+    agentApp: { count: agentCountMock, findMany: agentFindManyMock },
     verifier: { count: verifierCountMock },
   },
 }))
@@ -36,6 +37,7 @@ describe('Admin stats API details', () => {
     apiRequestCountMock.mockResolvedValue(0)
     pageViewFindManyMock.mockResolvedValue([])
     apiRequestFindManyMock.mockResolvedValue([])
+    agentFindManyMock.mockResolvedValue([])
   })
 
   it('should return 400 when only one custom date bound is provided', async () => {
@@ -80,10 +82,15 @@ describe('Admin stats API details', () => {
     ])
 
     apiRequestFindManyMock.mockResolvedValue([
-      { endpoint: '/api/v1/search', method: 'GET', statusCode: 200, responseTime: 42, userAgent: 'Mozilla/5.0', createdAt: new Date('2026-03-03T09:00:00.000Z') },
-      { endpoint: '/api/v1/articles', method: 'POST', statusCode: 201, responseTime: 80, userAgent: 'ChatGPT-User/1.0', createdAt: new Date('2026-03-03T10:00:00.000Z') },
-      { endpoint: '/api/v1/search', method: 'GET', statusCode: 200, responseTime: 30, userAgent: 'curl/8.6.0', createdAt: new Date('2026-03-03T11:00:00.000Z') },
-      { endpoint: '/api/v1/search', method: 'GET', statusCode: 503, responseTime: 25, userAgent: 'Bytespider', createdAt: new Date('2026-03-03T12:00:00.000Z') },
+      { agentId: null, endpoint: '/api/v1/search', method: 'GET', statusCode: 200, responseTime: 42, userAgent: 'Mozilla/5.0', createdAt: new Date('2026-03-03T09:00:00.000Z') },
+      { agentId: 'agent_01', endpoint: '/api/v1/articles', method: 'POST', statusCode: 201, responseTime: 80, userAgent: 'ChatGPT-User/1.0', createdAt: new Date('2026-03-03T10:00:00.000Z') },
+      { agentId: 'agent_02', endpoint: '/api/v1/search', method: 'GET', statusCode: 200, responseTime: 30, userAgent: 'curl/8.6.0', createdAt: new Date('2026-03-03T11:00:00.000Z') },
+      { agentId: null, endpoint: '/api/v1/search', method: 'GET', statusCode: 503, responseTime: 25, userAgent: 'Bytespider', createdAt: new Date('2026-03-03T12:00:00.000Z') },
+    ])
+
+    agentFindManyMock.mockResolvedValue([
+      { id: 'agent_01', externalAgentId: 'openai-assistant-prod' },
+      { id: 'agent_02', externalAgentId: null },
     ])
 
     const { GET } = await import('@/app/api/admin/stats/route')
@@ -97,7 +104,7 @@ describe('Admin stats API details', () => {
         period?: { type: string; start: string; end: string }
         traffic?: { timeSeries?: Array<{ time: string; count: number }> }
         details?: {
-          apiCalls?: Array<{ endpoint: string; clientType: string; botVendor: string }>
+          apiCalls?: Array<{ endpoint: string; clientType: string; botVendor: string; source: string }>
           pageViews?: Array<{ path: string; clientType: string; botVendor: string }>
           botVendors?: {
             pageViews: Array<{ vendor: string; count: number }>
@@ -128,6 +135,10 @@ describe('Admin stats API details', () => {
     const apiBotRecord = payload.data?.details?.apiCalls?.find((item) => item.endpoint === '/api/v1/articles')
     expect(apiBotRecord?.clientType).toBe('bot')
     expect(apiBotRecord?.botVendor).toBe('openai')
+    expect(apiBotRecord?.source).toBe('openai-assistant-prod')
+
+    const apiFallbackSource = payload.data?.details?.apiCalls?.find((item) => item.botVendor === 'other_bot')
+    expect(apiFallbackSource?.source).toBe('Bot')
 
     const pageBotRecord = payload.data?.details?.pageViews?.find((item) => item.path === '/docs')
     expect(pageBotRecord?.clientType).toBe('bot')
@@ -167,6 +178,10 @@ describe('Admin stats API details', () => {
         },
       })
     )
+    expect(agentFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ['agent_01', 'agent_02'] } },
+      select: { id: true, externalAgentId: true },
+    })
   })
 
   it('should aggregate by hour for a single-day custom range', async () => {

@@ -31,12 +31,18 @@ interface PageViewRow {
 }
 
 interface ApiRequestRow {
+  agentId: string | null
   endpoint: string
   method: string
   statusCode: number
   responseTime: number
   userAgent: string | null
   createdAt: Date
+}
+
+interface AgentSourceRow {
+  id: string
+  externalAgentId: string | null
 }
 
 type ClientType = 'human' | 'bot'
@@ -122,6 +128,14 @@ function aggregateBotVendors(items: Array<{ clientType: ClientType; botVendor: B
   return Array.from(counts.entries())
     .map(([vendor, count]) => ({ vendor, count }))
     .sort((a, b) => b.count - a.count)
+}
+
+function resolveApiCallSource(
+  row: ApiRequestRow,
+  sourceByAgentId: Map<string, string>
+): string {
+  if (!row.agentId) return 'Bot'
+  return sourceByAgentId.get(row.agentId) || 'Bot'
 }
 
 function getGranularityForRange(startDate: Date, endDateExclusive: Date): 'hour' | 'day' {
@@ -262,13 +276,39 @@ export async function GET(request: NextRequest) {
         () =>
           prisma.apiRequestLog.findMany({
             where: timeRangeWhere,
-            select: { endpoint: true, method: true, statusCode: true, responseTime: true, userAgent: true, createdAt: true },
+            select: { agentId: true, endpoint: true, method: true, statusCode: true, responseTime: true, userAgent: true, createdAt: true },
             orderBy: { createdAt: 'desc' },
             take: MAX_LOG_ROWS,
           }),
         []
       ),
     ])
+
+    const agentIds = Array.from(
+      new Set(
+        apiRequestLogs
+          .map((row) => row.agentId)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+
+    const agentSources = agentIds.length > 0
+      ? await safeStatsQuery<AgentSourceRow[]>(
+        'agent.sourceMap',
+        () =>
+          prisma.agentApp.findMany({
+            where: { id: { in: agentIds } },
+            select: { id: true, externalAgentId: true },
+          }),
+        []
+      )
+      : []
+
+    const sourceByAgentId = new Map(
+      agentSources
+        .map((agent) => [agent.id, (agent.externalAgentId || '').trim()] as const)
+        .filter((item): item is readonly [string, string] => item[1].length > 0)
+    )
 
     const topPages = getTopPagesFromRows(pageViews)
     const topEndpoints = getTopEndpointsFromRows(apiRequestLogs)
@@ -304,6 +344,7 @@ export async function GET(request: NextRequest) {
       statusCode: item.row.statusCode,
       responseTime: item.row.responseTime,
       userAgent: item.row.userAgent,
+      source: resolveApiCallSource(item.row, sourceByAgentId),
       clientType: item.clientType,
       botVendor: item.botVendor,
     }))

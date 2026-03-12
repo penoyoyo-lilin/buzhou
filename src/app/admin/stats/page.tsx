@@ -65,6 +65,7 @@ interface StatsData {
       statusCode: number
       responseTime: number
       userAgent: string | null
+      source: string
       clientType: 'human' | 'bot'
       botVendor: string
     }>
@@ -497,9 +498,7 @@ export default function StatsPage() {
                           </td>
                           <td className="px-3 py-2">{row.statusCode}</td>
                           <td className="px-3 py-2">{row.responseTime} ms</td>
-                          <td className="px-3 py-2">
-                            {row.clientType === 'human' ? 'Human' : `Bot / ${botVendorLabel(row.botVendor)}`}
-                          </td>
+                          <td className="px-3 py-2">{row.source || 'Bot'}</td>
                         </tr>
                       ))
                     ) : (
