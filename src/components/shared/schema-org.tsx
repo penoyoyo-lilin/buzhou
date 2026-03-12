@@ -94,6 +94,7 @@ export function getTechArticleSchema(params: {
   url: string
   datePublished: string
   dateModified: string
+  author?: string
   dependencies?: string[]
   proficiencyLevel?: 'Beginner' | 'Intermediate' | 'Advanced'
 }) {
@@ -107,7 +108,7 @@ export function getTechArticleSchema(params: {
     "dateModified": params.dateModified,
     "author": {
       "@type": "Organization",
-      "name": "Buzhou"
+      "name": params.author || "Buzhou"
     },
     "publisher": {
       "@type": "Organization",

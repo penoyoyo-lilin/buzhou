@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
 import { POST as createInternalArticle } from '@/app/api/internal/v1/articles/route'
 import { GET as searchArticles } from '@/app/api/v1/search/route'
+import { GET as getArticleSummary } from '@/app/api/v1/articles/[slug]/route'
 import prisma from '@/core/db/client'
 
 interface InternalCreateResponse {
@@ -24,6 +25,13 @@ interface SearchResponse {
   success: boolean
   data?: {
     items?: Array<{ id: string; slug: string }>
+  }
+}
+
+interface ArticleSummaryResponse {
+  success: boolean
+  data?: {
+    author?: string
   }
 }
 
@@ -59,6 +67,7 @@ describe('Internal API create article behavior', () => {
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
     const slug = `internal-create-visible-${unique}`
     const keyword = `internal-create-visible-keyword-${unique}`
+    const author = `integration-author-${unique}`
 
     const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
       method: 'POST',
@@ -72,7 +81,7 @@ describe('Internal API create article behavior', () => {
         summary: { zh: `摘要 ${keyword}`, en: `Summary ${keyword}` },
         content: { zh: '# 内容', en: '# Content' },
         domain: 'foundation',
-        createdBy: 'integration-test',
+        author,
         skipVerification: true,
       }),
     })
@@ -98,11 +107,12 @@ describe('Internal API create article behavior', () => {
 
     const persistedArticle = await prisma.article.findUnique({
       where: { id: article.id },
-      select: { status: true, publishedAt: true },
+      select: { status: true, publishedAt: true, createdBy: true },
     })
 
     expect(persistedArticle?.status).toBe('published')
     expect(persistedArticle?.publishedAt).not.toBeNull()
+    expect(persistedArticle?.createdBy).toBe(author)
 
     const searchRequest = new NextRequest(
       `http://localhost:3000/api/v1/search?q=${encodeURIComponent(keyword)}&pageSize=20`
@@ -115,5 +125,12 @@ describe('Internal API create article behavior', () => {
 
     const found = searchPayload.data?.items?.some((item) => item.id === article.id)
     expect(found).toBe(true)
+
+    const articleRequest = new NextRequest(`http://localhost:3000/api/v1/articles/${slug}`)
+    const articleResponse = await getArticleSummary(articleRequest, { params: { slug } })
+    const articlePayload = await articleResponse.json() as ArticleSummaryResponse
+    expect(articleResponse.status).toBe(200)
+    expect(articlePayload.success).toBe(true)
+    expect(articlePayload.data?.author).toBe(author)
   })
 })

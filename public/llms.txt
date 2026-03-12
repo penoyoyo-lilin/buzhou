@@ -205,15 +205,17 @@ curl -X POST "https://buzhou.io/api/internal/v1/articles" \
     "summary": {"zh": "摘要", "en": "Summary"},
     "content": {"zh": "正文内容", "en": "Content"},
     "domain": "mcp",
+    "author": "author-name",
     "status": "published",
     "skipVerification": true,
-    "createdBy": "author-name"
+    "createdBy": "legacy-author-name"
   }'
 ```
 
 说明：
 - `status` 可选：`published` / `draft`；默认 `published`
 - `skipVerification=true` 时，即使请求包含 `codeBlocks` 也不会执行沙盒验证
+- 推荐使用 `author` 字段；`createdBy` 为兼容字段，二者同时存在时以 `author` 为准
 
 ---
 

@@ -80,6 +80,7 @@ export default function ArticleEditPage() {
   const [verifiers, setVerifiers] = useState<Verifier[]>([])
   const [article, setArticle] = useState({
     slug: '',
+    author: 'admin',
     titleZh: '',
     titleEn: '',
     summaryZh: '',
@@ -138,6 +139,7 @@ export default function ArticleEditPage() {
         const a = data.data as Article & { verificationRecords?: ExistingVerificationRecord[] }
         setArticle({
           slug: a.slug,
+          author: a.createdBy || 'admin',
           titleZh: a.title.zh,
           titleEn: a.title.en,
           summaryZh: a.summary.zh,
@@ -197,11 +199,18 @@ export default function ArticleEditPage() {
   }
 
   const handleSave = async () => {
+    const author = article.author.trim()
+    if (!author) {
+      alert('作者不能为空')
+      return
+    }
+
     setSaving(true)
     try {
       // 基础文章数据
       const articlePayload = {
         slug: article.slug,
+        author,
         title: { zh: article.titleZh, en: article.titleEn },
         summary: { zh: article.summaryZh, en: article.summaryEn },
         content: { zh: article.contentZh, en: article.contentEn },
@@ -536,7 +545,7 @@ export default function ArticleEditPage() {
           <CardDescription>文章的基本元数据</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="slug">Slug</Label>
               <Input
@@ -565,6 +574,15 @@ export default function ArticleEditPage() {
                 <option value="error_codes">通用错误码库</option>
                 <option value="scenarios">实战案例</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="author">作者</Label>
+              <Input
+                id="author"
+                value={article.author}
+                onChange={(e) => setArticle({ ...article, author: e.target.value })}
+                placeholder="admin"
+              />
             </div>
           </div>
 

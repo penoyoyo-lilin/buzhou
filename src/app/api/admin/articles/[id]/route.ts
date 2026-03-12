@@ -37,6 +37,7 @@ export async function GET(
     // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
     const parsedArticle = {
       ...article,
+      author: article.createdBy,
       title: fromJsonValue(article.title, { zh: '', en: '' }),
       summary: fromJsonValue(article.summary, { zh: '', en: '' }),
       content: fromJsonValue(article.content, { zh: '', en: '' }),
@@ -118,6 +119,9 @@ export async function PUT(
     }
     if (body.status) {
       updateData.status = body.status
+    }
+    if (typeof body.author === 'string' && body.author.trim()) {
+      updateData.createdBy = body.author.trim()
     }
 
     const article = await prisma.article.update({

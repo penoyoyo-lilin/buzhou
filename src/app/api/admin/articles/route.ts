@@ -42,6 +42,7 @@ const createArticleSchema = z.object({
   ]),
   priority: z.enum(['P0', 'P1']).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
+  author: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
   verificationRecords: z.array(z.object({
     verifierId: z.number().int().positive(),
@@ -180,6 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validated.data
+    const author = data.author?.trim() || 'admin'
 
     // 创建文章
     const article = await articleService.create({
@@ -189,7 +191,7 @@ export async function POST(request: NextRequest) {
       content: data.content,
       domain: data.domain,
       tags: data.tags,
-      createdBy: 'admin',
+      createdBy: author,
     } as CreateArticleData)
 
     // 如果有验证记录，创建验证记录
@@ -216,7 +218,7 @@ export async function POST(request: NextRequest) {
       {
         articleId: article.id,
         domain: data.domain,
-        createdBy: 'admin',
+        createdBy: author,
         status: data.status || 'draft',
         needsQAGeneration: true,
         needsRelatedGeneration: true,

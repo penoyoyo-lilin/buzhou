@@ -168,4 +168,109 @@ describe('Internal create route - skipVerification', () => {
     expect(sandboxVerifyMock).toHaveBeenCalledTimes(1)
     expect(articleCreateMock).not.toHaveBeenCalled()
   })
+
+  it('should allow author field without createdBy and persist it as createdBy', async () => {
+    const { POST } = await import('@/app/api/internal/v1/articles/route')
+
+    const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug: 'internal-author-only',
+        title: { zh: '标题', en: 'Title' },
+        summary: { zh: '摘要', en: 'Summary' },
+        content: { zh: '内容', en: 'Content' },
+        domain: 'foundation',
+        author: 'author-only',
+        skipVerification: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const payload = await response.json() as { success: boolean; data?: { results?: Array<{ success: boolean }> } }
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(payload.data?.results?.[0]?.success).toBe(true)
+    expect(articleCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdBy: 'author-only',
+      })
+    )
+  })
+
+  it('should fail when neither author nor createdBy is provided', async () => {
+    const { POST } = await import('@/app/api/internal/v1/articles/route')
+
+    const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug: 'internal-missing-author',
+        title: { zh: '标题', en: 'Title' },
+        summary: { zh: '摘要', en: 'Summary' },
+        content: { zh: '内容', en: 'Content' },
+        domain: 'foundation',
+        skipVerification: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const payload = await response.json() as {
+      success: boolean
+      error?: {
+        code?: string
+        details?: {
+          errors?: {
+            author?: string[]
+          }
+        }
+      }
+    }
+
+    expect(response.status).toBe(400)
+    expect(payload.success).toBe(false)
+    expect(payload.error?.code).toBe('VALIDATION_ERROR')
+    expect(payload.error?.details?.errors?.author?.[0]).toContain('author')
+  })
+
+  it('should prefer author when both author and createdBy are provided', async () => {
+    const { POST } = await import('@/app/api/internal/v1/articles/route')
+
+    const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug: 'internal-author-priority',
+        title: { zh: '标题', en: 'Title' },
+        summary: { zh: '摘要', en: 'Summary' },
+        content: { zh: '内容', en: 'Content' },
+        domain: 'foundation',
+        author: 'preferred-author',
+        createdBy: 'legacy-created-by',
+        skipVerification: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const payload = await response.json() as { success: boolean; data?: { results?: Array<{ success: boolean }> } }
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(payload.data?.results?.[0]?.success).toBe(true)
+    expect(articleCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdBy: 'preferred-author',
+      })
+    )
+  })
 })

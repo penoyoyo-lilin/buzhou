@@ -57,6 +57,7 @@ type TranslationDict = {
     // 新增
     articleInfo: string
     articleId: string
+    author: string
     confidenceScore: string
     riskLevel: string
     applicableVersions: string
@@ -229,6 +230,7 @@ export const translations: Record<Locale, TranslationDict> = {
       // 新增
       articleInfo: '文章信息',
       articleId: '文章 ID',
+      author: '作者',
       confidenceScore: '置信分数',
       riskLevel: '风险等级',
       applicableVersions: '适用版本',
@@ -405,6 +407,7 @@ export const translations: Record<Locale, TranslationDict> = {
       // 新增
       articleInfo: 'Article Info',
       articleId: 'Article ID',
+      author: 'Author',
       confidenceScore: 'Confidence Score',
       riskLevel: 'Risk Level',
       applicableVersions: 'Applicable Versions',

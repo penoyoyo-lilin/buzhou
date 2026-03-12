@@ -54,11 +54,20 @@ const createArticleRequestSchema = z.object({
   metadata: z.any().optional(),
   qaPairs: z.array(z.any()).optional(),
   relatedIds: z.array(z.string()).optional(),
-  createdBy: z.string().min(1),
+  createdBy: z.string().min(1).optional(),
+  author: z.string().min(1).optional(),
   status: z.enum(['draft', 'published']).optional().default('published'),
   skipVerification: z.boolean().optional(),
   // 新增：验证记录
   verificationRecords: z.array(verificationRecordSchema).optional(),
+}).superRefine((data, ctx) => {
+  if (!data.author && !data.createdBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['author'],
+      message: 'author 或 createdBy 至少提供一个',
+    })
+  }
 })
 
 export async function POST(request: NextRequest) {
@@ -74,7 +83,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     // 支持单个或批量创建
-    const items = Array.isArray(body) ? body : [body]
+    const isBatch = Array.isArray(body)
+    const items = isBatch ? body : [body]
     const results: Array<{
       success: boolean
       article?: unknown
@@ -82,10 +92,46 @@ export async function POST(request: NextRequest) {
     }> = []
 
     for (const item of items) {
+      const parsed = createArticleRequestSchema.safeParse(item)
+      if (!parsed.success) {
+        if (!isBatch) {
+          return Response.json(
+            errorResponse(ErrorCodes.VALIDATION_ERROR, '参数验证失败', {
+              errors: parsed.error.flatten().fieldErrors,
+            }),
+            { status: 400 }
+          )
+        }
+
+        results.push({
+          success: false,
+          error: parsed.error.issues[0]?.message || '参数验证失败',
+        })
+        continue
+      }
+
       try {
-        // 验证输入
-        const validated = createArticleRequestSchema.parse(item)
+        const validated = parsed.data
         const shouldSkipVerification = validated.skipVerification === true
+        const author = validated.author?.trim() || validated.createdBy?.trim()
+        if (!author) {
+          if (!isBatch) {
+            return Response.json(
+              errorResponse(ErrorCodes.VALIDATION_ERROR, '参数验证失败', {
+                errors: {
+                  author: ['author 或 createdBy 至少提供一个'],
+                },
+              }),
+              { status: 400 }
+            )
+          }
+
+          results.push({
+            success: false,
+            error: 'author 或 createdBy 至少提供一个',
+          })
+          continue
+        }
 
         // 沙盒验证（可选跳过）
         if (!shouldSkipVerification) {
@@ -106,7 +152,7 @@ export async function POST(request: NextRequest) {
             verificationStatus: 'pending' as const,
             verificationRecords: [],
             status: validated.status,
-            createdBy: validated.createdBy,
+            createdBy: author,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             publishedAt: null,
@@ -136,13 +182,13 @@ export async function POST(request: NextRequest) {
           metadata: validated.metadata,
           qaPairs: validated.qaPairs,
           relatedIds: validated.relatedIds,
-          createdBy: validated.createdBy,
+          createdBy: author,
           skipVerification: shouldSkipVerification,
         }
 
         const createdArticle = await articleService.create(createData)
         const article = validated.status === 'published'
-          ? await articleService.publish(createdArticle.id, validated.createdBy)
+          ? await articleService.publish(createdArticle.id, author)
           : createdArticle
 
         // 如果有验证记录，创建验证记录
@@ -164,7 +210,7 @@ export async function POST(request: NextRequest) {
           {
             articleId: article.id,
             domain: validated.domain,
-            createdBy: validated.createdBy,
+            createdBy: author,
             status: article.status,
             needsQAGeneration: true,
             needsRelatedGeneration: true,
