@@ -61,6 +61,36 @@ describe('Public stats API accuracy', () => {
     expect(payload.data?.apiRequests?.source).toBe('apiRequestLog')
     expect(payload.data?.articles?.weeklyNew).toBe(4)
 
+    // API 调用总数包含公开 API 全量调用（含 stats/pageview）
+    expect(apiRequestCountMock).toHaveBeenCalledWith()
+
+    // 发布文章统计口径：status=published 或 publishedAt 非空
+    expect(articleCountMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          OR: [
+            { status: 'published' },
+            { publishedAt: { not: null } },
+          ],
+        },
+      })
+    )
+
+    // verified 统计仅计算已发布内容
+    expect(articleCountMock).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: {
+          verificationStatus: 'verified',
+          OR: [
+            { status: 'published' },
+            { publishedAt: { not: null } },
+          ],
+        },
+      })
+    )
+
     // weeklyNew 使用已发布口径
     expect(articleCountMock).toHaveBeenLastCalledWith(
       expect.objectContaining({

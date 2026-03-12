@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
+import { agentTrackingService } from '@/services/agent-tracking.service'
 
 async function getApiRequestsTotal(): Promise<{ total: number; source: 'apiRequestLog' | 'agentApp' | 'none' }> {
   try {
@@ -29,13 +30,36 @@ async function getApiRequestsTotal(): Promise<{ total: number; source: 'apiReque
   }
 }
 
+async function withTracking(
+  request: NextRequest,
+  startTime: number,
+  response: NextResponse
+): Promise<NextResponse> {
+  await agentTrackingService.trackPublicApiCall({
+    request,
+    endpoint: '/api/v1/stats',
+    method: request.method,
+    statusCode: response.status,
+    responseTimeMs: Date.now() - startTime,
+  })
+  return response
+}
+
 /**
  * GET /api/v1/stats
  * 公开统计接口，无需认证
  * 返回文章数量、Agent 数量等公开统计数据
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
+    const publishedWhere = {
+      OR: [
+        { status: 'published' as const },
+        { publishedAt: { not: null } },
+      ],
+    }
+
     // 并行查询统计数据
     const [
       publishedArticlesCount,
@@ -46,7 +70,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // 已发布文章数量
       prisma.article.count({
-        where: { status: 'published' },
+        where: publishedWhere,
       }),
       // 文章总数
       prisma.article.count(),
@@ -56,7 +80,10 @@ export async function GET(request: NextRequest) {
       }),
       // 已验证文章数量
       prisma.article.count({
-        where: { verificationStatus: 'verified' },
+        where: {
+          verificationStatus: 'verified',
+          ...publishedWhere,
+        },
       }),
       // API 请求总数（优先日志口径，失败回退）
       getApiRequestsTotal(),
@@ -68,11 +95,13 @@ export async function GET(request: NextRequest) {
 
     const weeklyNewArticles = await prisma.article.count({
       where: {
-        status: 'published',
         OR: [
-          { publishedAt: { gte: oneWeekAgo } },
+          {
+            publishedAt: { gte: oneWeekAgo },
+          },
           {
             publishedAt: null,
+            status: 'published',
             createdAt: { gte: oneWeekAgo },
           },
         ],
@@ -95,12 +124,14 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    return NextResponse.json(successResponse(stats))
+    const response = NextResponse.json(successResponse(stats))
+    return await withTracking(request, startTime, response)
   } catch (error) {
     console.error('Stats API error:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '获取统计数据失败'),
       { status: 500 }
     )
+    return await withTracking(request, startTime, response)
   }
 }

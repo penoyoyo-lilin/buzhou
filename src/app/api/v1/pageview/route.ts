@@ -6,17 +6,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
+import { agentTrackingService } from '@/services/agent-tracking.service'
+
+async function withTracking(
+  request: NextRequest,
+  startTime: number,
+  response: NextResponse
+): Promise<NextResponse> {
+  await agentTrackingService.trackPublicApiCall({
+    request,
+    endpoint: '/api/v1/pageview',
+    method: request.method,
+    statusCode: response.status,
+    responseTimeMs: Date.now() - startTime,
+  })
+  return response
+}
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
   try {
     const body = await request.json()
     const { path, referrer } = body
 
     if (!path) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         errorResponse(ErrorCodes.INVALID_INPUT, '缺少路径参数'),
         { status: 400 }
       )
+      return await withTracking(request, startTime, response)
     }
 
     // 获取客户端信息
@@ -40,10 +58,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(successResponse({ recorded: true }))
+    const response = NextResponse.json(successResponse({ recorded: true }))
+    return await withTracking(request, startTime, response)
   } catch (error) {
     console.error('Pageview record error:', error)
     // 静默失败，不影响用户体验
-    return NextResponse.json(successResponse({ recorded: false }))
+    const response = NextResponse.json(successResponse({ recorded: false }))
+    return await withTracking(request, startTime, response)
   }
 }

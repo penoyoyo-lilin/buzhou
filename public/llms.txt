@@ -67,6 +67,8 @@
 - **认证方式**: 无需认证（公开接口）
 - **响应格式**: 默认 JSON；文章详情接口支持 `markdown` / `json`
 - **字符编码**: UTF-8
+- **可选请求头**: `x-agent-id`（建议 Agent 传递稳定唯一标识，便于自动注册与排重）
+- **自动注册说明**: `/api/v1/*` 在识别为 Agent 请求时，会在首次调用自动注册 Agent 并累计调用统计
 
 ### 端点列表
 
@@ -88,6 +90,10 @@ GET /api/v1/search
 **请求示例**:
 ```bash
 curl "https://www.buzhou.io/api/v1/search?q=mcp+connection&domain=mcp&status=verified"
+
+# 建议 Agent 传递稳定 ID（用于高精度排重）
+curl -H "x-agent-id: my-agent-prod" \
+  "https://www.buzhou.io/api/v1/search?q=mcp+connection"
 ```
 
 **响应示例**:

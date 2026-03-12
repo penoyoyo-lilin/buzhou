@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { articleService } from '@/services/article.service'
 import { renderService } from '@/services/render.service'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
+import { agentTrackingService } from '@/services/agent-tracking.service'
 
 function buildAgentDiscoveryHeaders(origin: string, slug: string, lang: 'zh' | 'en') {
   const articleEndpoint = `${origin}/api/v1/articles/${slug}`
@@ -29,10 +30,27 @@ function buildAgentDiscoveryHeaders(origin: string, slug: string, lang: 'zh' | '
   }
 }
 
+async function withTracking(
+  request: NextRequest,
+  slug: string,
+  startTime: number,
+  response: NextResponse
+): Promise<NextResponse> {
+  await agentTrackingService.trackPublicApiCall({
+    request,
+    endpoint: `/api/v1/articles/${slug}`,
+    method: request.method,
+    statusCode: response.status,
+    responseTimeMs: Date.now() - startTime,
+  })
+  return response
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  const startTime = Date.now()
   try {
     const { slug } = params
     const { searchParams } = new URL(request.url)
@@ -43,16 +61,17 @@ export async function GET(
     const article = await articleService.findBySlug(slug)
 
     if (!article) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         errorResponse(ErrorCodes.NOT_FOUND, '文章不存在'),
         { status: 404 }
       )
+      return await withTracking(request, slug, startTime, response)
     }
 
     // JSON 格式
     if (format === 'json') {
       const jsonContent = renderService.toJsonResponse(article, lang)
-      return new NextResponse(jsonContent, {
+      const response = new NextResponse(jsonContent, {
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
           'X-Article-Id': article.id,
@@ -62,12 +81,13 @@ export async function GET(
           'Link': discovery.link,
         },
       })
+      return await withTracking(request, slug, startTime, response)
     }
 
     // Markdown 格式
     if (format === 'markdown') {
       const markdownContent = renderService.toMarkdown(article, lang)
-      return new NextResponse(markdownContent, {
+      const response = new NextResponse(markdownContent, {
         headers: {
           'Content-Type': 'text/markdown; charset=utf-8',
           'X-Article-Id': article.id,
@@ -77,10 +97,11 @@ export async function GET(
           'Link': discovery.link,
         },
       })
+      return await withTracking(request, slug, startTime, response)
     }
 
     // 默认返回文章摘要信息
-    return NextResponse.json(
+    const response = NextResponse.json(
       successResponse({
         id: article.id,
         slug: article.slug,
@@ -110,11 +131,14 @@ export async function GET(
         },
       }
     )
+    return await withTracking(request, slug, startTime, response)
   } catch (error) {
     console.error('Article API error:', error)
-    return NextResponse.json(
+    const response = NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '获取文章失败'),
       { status: 500 }
     )
+    const { slug } = params
+    return await withTracking(request, slug, startTime, response)
   }
 }

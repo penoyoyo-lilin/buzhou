@@ -65,6 +65,11 @@ export default function ApiDocsPage({ params }: { params: { lang: Locale } }) {
             <p className="text-sm text-muted-foreground">
               {t(lang, 'apiDocs.noKeyModeDesc')}
             </p>
+            <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              {lang === 'zh'
+                ? '建议 Agent 额外传递 x-agent-id 请求头。系统会在首次调用 /api/v1/* 时自动注册 Agent，并持续累计调用统计。'
+                : 'Agents should provide an optional x-agent-id header. The system auto-registers the agent on the first /api/v1/* call and continuously aggregates usage metrics.'}
+            </div>
           </div>
 
           <div className="border rounded-lg p-4">
@@ -77,6 +82,11 @@ export default function ApiDocsPage({ params }: { params: { lang: Locale } }) {
             </p>
             <CodeBlock
               code={`curl -H "Authorization: Bearer YOUR_API_KEY" \\
+  https://buzhou.io/api/v1/search?q=Claude`}
+              language="bash"
+            />
+            <CodeBlock
+              code={`curl -H "x-agent-id: my-agent-prod" \\
   https://buzhou.io/api/v1/search?q=Claude`}
               language="bash"
             />

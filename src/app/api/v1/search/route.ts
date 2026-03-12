@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
+import { agentTrackingService } from '@/services/agent-tracking.service'
 
 // 参数校验
 const SearchSchema = z.object({
@@ -20,7 +21,23 @@ const SearchSchema = z.object({
   lang: z.enum(['zh', 'en']).default('zh'),
 })
 
+async function withTracking(
+  request: NextRequest,
+  startTime: number,
+  response: NextResponse
+): Promise<NextResponse> {
+  await agentTrackingService.trackPublicApiCall({
+    request,
+    endpoint: '/api/v1/search',
+    method: request.method,
+    statusCode: response.status,
+    responseTimeMs: Date.now() - startTime,
+  })
+  return response
+}
+
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
   try {
     const { searchParams } = new URL(request.url)
     const params = SearchSchema.parse(Object.fromEntries(searchParams))
@@ -126,7 +143,7 @@ updatedAt: article.updatedAt.toISOString(),
 
     const totalPages = Math.ceil(total / params.pageSize)
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       successResponse({
         items,
         pagination: {
@@ -143,21 +160,24 @@ updatedAt: article.updatedAt.toISOString(),
         },
       }
     )
+    return await withTracking(request, startTime, response)
   } catch (error) {
     console.error('Search API error:', error)
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         errorResponse(ErrorCodes.VALIDATION_ERROR, '参数验证失败', {
           errors: error.errors,
         }),
         { status: 400 }
       )
+      return await withTracking(request, startTime, response)
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '服务器内部错误'),
       { status: 500 }
     )
+    return await withTracking(request, startTime, response)
   }
 }
