@@ -14,8 +14,41 @@ const statsQuerySchema = z.object({
   period: z.enum(['day', 'week', 'month']).default('day'),
 })
 
+<<<<<<< HEAD
 export async function GET(request: NextRequest) {
   try {
+=======
+const MAX_LOG_ROWS = 20000
+
+interface PageViewRow {
+  path: string
+  isBot: boolean
+  createdAt: Date
+}
+
+interface ApiRequestRow {
+  endpoint: string
+  statusCode: number
+  responseTime: number
+  createdAt: Date
+}
+
+async function safeStatsQuery<T>(
+  label: string,
+  query: () => Promise<T>,
+  fallback: T
+): Promise<T> {
+  try {
+    return await query()
+  } catch (error) {
+    console.error(`[AdminStatsAPI] ${label} query failed:`, error)
+    return fallback
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+>>>>>>> codex/branch01
     // 验证管理员认证
     const admin = await verifyAdminAuth(request)
     if (!admin) {
@@ -45,10 +78,11 @@ export async function GET(request: NextRequest) {
         break
     }
 
-    // 获取统计数据
+    // 获取核心统计数据（降级容错，避免单点失败导致整体 500）
     const [
       totalArticles,
       publishedArticles,
+<<<<<<< HEAD
       totalViews,
       viewsInPeriod,
       activeAgents,
@@ -82,7 +116,57 @@ export async function GET(request: NextRequest) {
       safeApiRequestCount(startDate),
       safeApiRequestLogs(startDate),
       getTopEndpoints(startDate),
+=======
+      activeAgents,
+      activeVerifiers,
+    ] = await Promise.all([
+      safeStatsQuery('article.total', () => prisma.article.count(), 0),
+      safeStatsQuery('article.published', () => prisma.article.count({ where: { status: 'published' } }), 0),
+      safeStatsQuery('agent.active', () => prisma.agentApp.count({ where: { status: 'active' } }), 0),
+      safeStatsQuery('verifier.active', () => prisma.verifier.count({ where: { status: 'active' } }), 0),
+>>>>>>> codex/branch01
     ])
+
+    const [totalViews, viewsInPeriod, pageViews] = await Promise.all([
+      safeStatsQuery('pageView.total', () => prisma.pageViewLog.count(), 0),
+      safeStatsQuery(
+        'pageView.inPeriod',
+        () => prisma.pageViewLog.count({ where: { createdAt: { gte: startDate } } }),
+        0
+      ),
+      safeStatsQuery<PageViewRow[]>(
+        'pageView.rows',
+        () => prisma.pageViewLog.findMany({
+          where: { createdAt: { gte: startDate } },
+          select: { path: true, isBot: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: MAX_LOG_ROWS,
+        }),
+        []
+      ),
+    ])
+
+    const [totalApiRequests, apiRequestsInPeriod, apiRequestLogs] = await Promise.all([
+      safeStatsQuery('apiRequest.total', () => prisma.apiRequestLog.count(), 0),
+      safeStatsQuery(
+        'apiRequest.inPeriod',
+        () => prisma.apiRequestLog.count({ where: { createdAt: { gte: startDate } } }),
+        0
+      ),
+      safeStatsQuery<ApiRequestRow[]>(
+        'apiRequest.rows',
+        () => prisma.apiRequestLog.findMany({
+          where: { createdAt: { gte: startDate } },
+          select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+          take: MAX_LOG_ROWS,
+        }),
+        []
+      ),
+    ])
+
+    const topPages = getTopPagesFromRows(pageViews)
+    const topEndpoints = getTopEndpointsFromRows(apiRequestLogs)
 
     // 按时间聚合数据
     const granularity = params.period === 'day' ? 'hour' : 'day'
@@ -103,6 +187,8 @@ export async function GET(request: NextRequest) {
     const avgResponseTime = apiRequestLogs.length > 0
       ? Math.round(apiRequestLogs.reduce((sum, r) => sum + r.responseTime, 0) / apiRequestLogs.length)
       : 0
+
+    const logRowsCapped = pageViews.length >= MAX_LOG_ROWS || apiRequestLogs.length >= MAX_LOG_ROWS
 
     return Response.json(
       successResponse({
@@ -132,6 +218,10 @@ export async function GET(request: NextRequest) {
           start: startDate.toISOString(),
           end: now.toISOString(),
         },
+        diagnostics: {
+          logRowsCapped,
+          maxLogRows: MAX_LOG_ROWS,
+        },
       })
     )
   } catch (error) {
@@ -154,15 +244,11 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * 获取热门页面
+ * 从页面浏览数据计算热门页面
  */
-async function getTopPages(startDate: Date) {
-  const pageViews = await prisma.pageViewLog.findMany({
-    where: { createdAt: { gte: startDate } },
-    select: { path: true },
-  })
-
+function getTopPagesFromRows(pageViews: PageViewRow[]) {
   const pathCounts = new Map<string, number>()
+
   pageViews.forEach((pv) => {
     pathCounts.set(pv.path, (pathCounts.get(pv.path) || 0) + 1)
   })
@@ -174,12 +260,17 @@ async function getTopPages(startDate: Date) {
 }
 
 /**
- * 获取热门 API 端点
+ * 从 API 请求数据计算热门端点
  */
+
 async function getTopEndpoints(startDate: Date) {
   const apiRequests = await safeApiRequestLogs(startDate, false)
 
+
+function getTopEndpointsFromRows(apiRequests: ApiRequestRow[]) {
+
   const endpointStats = new Map<string, { count: number; errors: number; totalTime: number }>()
+
   apiRequests.forEach((req) => {
     const existing = endpointStats.get(req.endpoint) || { count: 0, errors: 0, totalTime: 0 }
     existing.count++
@@ -249,7 +340,7 @@ async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true
 /**
  * 按时间聚合数据
  */
-function aggregateByTime<T extends Record<string, unknown>>(
+function aggregateByTime<T>(
   data: T[],
   granularity: 'hour' | 'day',
   timeField: keyof T
@@ -257,7 +348,10 @@ function aggregateByTime<T extends Record<string, unknown>>(
   const counts = new Map<string, number>()
 
   data.forEach((item) => {
-    const date = item[timeField] as Date
+    const rawTime = item[timeField]
+    const date = rawTime instanceof Date ? rawTime : new Date(String(rawTime))
+    if (Number.isNaN(date.getTime())) return
+
     const key = granularity === 'hour'
       ? `${date.getHours().toString().padStart(2, '0')}:00`
       : `${date.getMonth() + 1}-${date.getDate().toString().padStart(2, '0')}`

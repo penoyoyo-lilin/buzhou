@@ -2,6 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
 
+async function getApiRequestsTotal(): Promise<{ total: number; source: 'apiRequestLog' | 'agentApp' | 'none' }> {
+  try {
+    const fromLog = await prisma.apiRequestLog.count()
+    return {
+      total: fromLog,
+      source: 'apiRequestLog',
+    }
+  } catch (error) {
+    console.error('[PublicStatsAPI] apiRequestLog.count failed, fallback to agentApp aggregate:', error)
+    try {
+      const fallback = await prisma.agentApp.aggregate({
+        _sum: { totalRequests: true },
+      })
+      return {
+        total: fallback._sum.totalRequests || 0,
+        source: 'agentApp',
+      }
+    } catch (fallbackError) {
+      console.error('[PublicStatsAPI] agentApp aggregate fallback failed:', fallbackError)
+      return {
+        total: 0,
+        source: 'none',
+      }
+    }
+  }
+}
+
 /**
  * GET /api/v1/stats
  * 公开统计接口，无需认证
@@ -14,8 +41,8 @@ export async function GET(request: NextRequest) {
       publishedArticlesCount,
       totalArticlesCount,
       activeAgentsCount,
-      totalApiRequests,
       verifiedArticlesCount,
+      apiRequests,
     ] = await Promise.all([
       // 已发布文章数量
       prisma.article.count({
@@ -27,25 +54,28 @@ export async function GET(request: NextRequest) {
       prisma.agentApp.count({
         where: { status: 'active' },
       }),
-      // API 请求总数（从 AgentApp 的 stats 聚合）
-      prisma.agentApp.aggregate({
-        _sum: { totalRequests: true },
-      }),
       // 已验证文章数量
       prisma.article.count({
         where: { verificationStatus: 'verified' },
       }),
+      // API 请求总数（优先日志口径，失败回退）
+      getApiRequestsTotal(),
     ])
 
-    // 计算本周新增文章数
+    // 计算本周新增已发布文章数（优先 publishedAt）
     const oneWeekAgo = new Date()
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
     const weeklyNewArticles = await prisma.article.count({
       where: {
-        createdAt: {
-          gte: oneWeekAgo,
-        },
+        status: 'published',
+        OR: [
+          { publishedAt: { gte: oneWeekAgo } },
+          {
+            publishedAt: null,
+            createdAt: { gte: oneWeekAgo },
+          },
+        ],
       },
     })
 
@@ -60,7 +90,8 @@ export async function GET(request: NextRequest) {
         active: activeAgentsCount,
       },
       apiRequests: {
-        total: totalApiRequests._sum.totalRequests || 0,
+        total: apiRequests.total,
+        source: apiRequests.source,
       },
     }
 
