@@ -4,6 +4,9 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
 import { agentTrackingService } from '@/services/agent-tracking.service'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // 参数校验
 const SearchSchema = z.object({
   q: z.string().min(1).optional(),

@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * 文章 API
  * GET /api/v1/articles/[slug]?format=json|markdown

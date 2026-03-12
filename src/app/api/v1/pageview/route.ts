@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * 记录页面访问
  * POST /api/v1/pageview

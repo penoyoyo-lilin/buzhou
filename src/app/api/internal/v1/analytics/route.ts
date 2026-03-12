@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * 内部 API: 社区访问数据统计
  * GET /api/internal/v1/analytics

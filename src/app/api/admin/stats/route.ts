@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * 管理后台 API: 访问统计数据
  * GET /api/admin/stats

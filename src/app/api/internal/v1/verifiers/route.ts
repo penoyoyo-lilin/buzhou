@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 /**
  * 内部 API: 验证人列表和创建
  * GET/POST /api/internal/v1/verifiers
