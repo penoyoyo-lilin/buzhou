@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { CodeBlock } from '@/components/ui/code-block'
@@ -5,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { VerificationBadge, DomainBadge, RiskBadge } from '@/components/shared/verification-badge'
 import { VerificationTimeline } from '@/components/shared/verification-timeline'
 import { ArticleViewTabs } from '@/components/shared/article-view-tabs'
-import { SchemaOrg, getArticleSchema, getTechArticleSchema } from '@/components/shared/schema-org'
+import { SchemaOrg, getArticleSchema, getTechArticleSchema, getFAQPageSchema, getBreadcrumbSchema } from '@/components/shared/schema-org'
 import { articleService } from '@/services/article.service'
 import { formatDateTime } from '@/lib/utils'
 import { t, type Locale } from '@/lib/i18n/translations'
@@ -22,15 +24,104 @@ interface ArticlePageProps {
   }
 }
 
+const SITE_URL = 'https://www.buzhou.io'
+
+function buildArticleUrl(lang: Locale, slug: string): string {
+  return `${SITE_URL}/${lang}/articles/${slug}`
+}
+
+const getPublishedArticleBySlug = cache(async (slug: string) => {
+  return articleService.findBySlug(slug)
+})
+
 export async function generateStaticParams() {
   // 返回所有文章的 slug 参数
   return []
 }
 
+export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
+  const { lang, slug } = params
+  const article = await getPublishedArticleBySlug(slug)
+  const canonicalUrl = buildArticleUrl(lang, slug)
+
+  if (!article) {
+    return {
+      title: lang === 'zh' ? '文章不存在' : 'Article Not Found',
+      description: lang === 'zh' ? '请求的文章不存在。' : 'The requested article was not found.',
+      alternates: {
+        canonical: canonicalUrl,
+      },
+      robots: {
+        index: false,
+        follow: false,
+      },
+    }
+  }
+
+  const title = lang === 'zh' ? article.title.zh : article.title.en
+  const summary = lang === 'zh' ? article.summary.zh : article.summary.en
+  const publishedDate = getPublishedDisplayDate(article)
+  const language = lang === 'zh' ? 'zh-CN' : 'en-US'
+  const keywords = [...article.tags, ...article.keywords]
+
+  return {
+    title,
+    description: summary,
+    keywords,
+    alternates: {
+      canonical: canonicalUrl,
+      languages: {
+        'zh-CN': buildArticleUrl('zh', slug),
+        'en-US': buildArticleUrl('en', slug),
+        'x-default': buildArticleUrl('zh', slug),
+      },
+      types: {
+        'application/json': `${SITE_URL}/api/v1/articles/${slug}?format=json&lang=${lang}`,
+        'text/markdown': `${SITE_URL}/api/v1/articles/${slug}?format=markdown&lang=${lang}`,
+      },
+    },
+    openGraph: {
+      type: 'article',
+      url: canonicalUrl,
+      title,
+      description: summary,
+      locale: lang === 'zh' ? 'zh_CN' : 'en_US',
+      siteName: 'Buzhou',
+      publishedTime: publishedDate,
+      modifiedTime: article.updatedAt,
+      tags: keywords,
+      authors: [article.createdBy],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: summary,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
+    other: {
+      'article:published_time': publishedDate,
+      'article:modified_time': article.updatedAt,
+      'article:author': article.createdBy,
+      'article:section': article.domain,
+      'content-language': language,
+    },
+  }
+}
+
 export default async function ArticlePage({ params, searchParams }: ArticlePageProps) {
   const { lang, slug } = params
-  const { format = 'html' } = await Promise.resolve(searchParams)
-  const article = await articleService.findBySlug(slug)
+  await Promise.resolve(searchParams)
+  const article = await getPublishedArticleBySlug(slug)
 
   if (!article) {
     notFound()
@@ -56,8 +147,10 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
   const jsonContent = renderService.toJsonResponse(article, lang)
 
   // 构建 Schema.org 结构化数据
-  const articleUrl = `https://buzhou.io/${lang}/articles/${slug}`
+  const articleUrl = buildArticleUrl(lang, slug)
   const publishedDate = getPublishedDisplayDate(article)
+  const articleLanguage = lang === 'zh' ? 'zh-CN' : 'en-US'
+  const schemaKeywords = [...article.tags, ...article.keywords]
 
   const articleSchemas = [
     getArticleSchema({
@@ -67,6 +160,13 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
       datePublished: publishedDate,
       dateModified: article.updatedAt,
       author: article.createdBy,
+      dateCreated: article.createdAt,
+      inLanguage: articleLanguage,
+      keywords: schemaKeywords,
+      articleSection: article.domain,
+      mainEntityOfPage: articleUrl,
+      isAccessibleForFree: true,
+      about: schemaKeywords,
     }),
     getTechArticleSchema({
       title,
@@ -76,8 +176,28 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
       dateModified: article.updatedAt,
       author: article.createdBy,
       dependencies: article.metadata.runtimeEnv?.map(e => `${e.name} ${e.version}`),
-      proficiencyLevel: 'Intermediate'
-    })
+      proficiencyLevel: 'Intermediate',
+      inLanguage: articleLanguage,
+      keywords: schemaKeywords,
+      mainEntityOfPage: articleUrl,
+      isAccessibleForFree: true,
+    }),
+    getBreadcrumbSchema({
+      lang,
+      title,
+      url: articleUrl,
+    }),
+    ...(article.qaPairs.length > 0
+      ? [
+          getFAQPageSchema({
+            url: articleUrl,
+            items: article.qaPairs.map((qa) => ({
+              question: lang === 'zh' ? qa.question.zh : qa.question.en,
+              answer: lang === 'zh' ? qa.answer.zh : qa.answer.en,
+            })),
+          }),
+        ]
+      : []),
   ]
 
   // HTML 内容组件

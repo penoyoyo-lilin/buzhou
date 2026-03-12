@@ -48,18 +48,20 @@ describe('Admin stats API resilience', () => {
     pageViewCountMock
       .mockResolvedValueOnce(120)
       .mockResolvedValueOnce(25)
+      .mockResolvedValueOnce(20)
+      .mockResolvedValueOnce(5)
     pageViewFindManyMock.mockResolvedValue([
-      { path: '/zh', isBot: false, createdAt: new Date('2026-03-12T01:00:00.000Z') },
-      { path: '/zh', isBot: true, createdAt: new Date('2026-03-12T02:00:00.000Z') },
-      { path: '/en', isBot: false, createdAt: new Date('2026-03-12T03:00:00.000Z') },
+      { path: '/zh', referrer: null, userAgent: 'Mozilla/5.0', isBot: false, createdAt: new Date('2026-03-12T01:00:00.000Z') },
+      { path: '/zh', referrer: null, userAgent: 'Googlebot/2.1', isBot: true, createdAt: new Date('2026-03-12T02:00:00.000Z') },
+      { path: '/en', referrer: null, userAgent: 'Mozilla/5.0', isBot: false, createdAt: new Date('2026-03-12T03:00:00.000Z') },
     ])
 
     apiRequestCountMock
       .mockResolvedValueOnce(300)
       .mockResolvedValueOnce(45)
     apiRequestFindManyMock.mockResolvedValue([
-      { endpoint: '/api/v1/search', statusCode: 200, responseTime: 20, createdAt: new Date('2026-03-12T01:00:00.000Z') },
-      { endpoint: '/api/v1/search', statusCode: 500, responseTime: 120, createdAt: new Date('2026-03-12T02:00:00.000Z') },
+      { endpoint: '/api/v1/search', method: 'GET', statusCode: 200, responseTime: 20, userAgent: 'Mozilla/5.0', createdAt: new Date('2026-03-12T01:00:00.000Z') },
+      { endpoint: '/api/v1/search', method: 'GET', statusCode: 500, responseTime: 120, userAgent: 'curl/8.0.0', createdAt: new Date('2026-03-12T02:00:00.000Z') },
     ])
 
     agentCountMock.mockResolvedValue(3)
@@ -79,8 +81,10 @@ describe('Admin stats API resilience', () => {
   })
 
   it('should degrade gracefully when log queries fail instead of returning 500', async () => {
+    apiRequestCountMock.mockReset()
     apiRequestCountMock.mockRejectedValue(new Error('api_request_log relation missing'))
     apiRequestFindManyMock.mockRejectedValue(new Error('api_request_log relation missing'))
+    pageViewCountMock.mockReset()
     pageViewCountMock.mockRejectedValue(new Error('page_view_log relation missing'))
     pageViewFindManyMock.mockRejectedValue(new Error('page_view_log relation missing'))
 

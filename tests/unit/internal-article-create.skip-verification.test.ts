@@ -273,4 +273,33 @@ describe('Internal create route - skipVerification', () => {
       })
     )
   })
+
+  it('should reject agent as domain in create payload', async () => {
+    const { POST } = await import('@/app/api/internal/v1/articles/route')
+
+    const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-key',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        slug: 'internal-agent-domain-forbidden',
+        title: { zh: '标题', en: 'Title' },
+        summary: { zh: '摘要', en: 'Summary' },
+        content: { zh: '内容', en: 'Content' },
+        domain: 'agent',
+        author: 'domain-check',
+        skipVerification: true,
+      }),
+    })
+
+    const response = await POST(request)
+    const payload = await response.json() as { success: boolean; error?: { code?: string } }
+
+    expect(response.status).toBe(400)
+    expect(payload.success).toBe(false)
+    expect(payload.error?.code).toBe('VALIDATION_ERROR')
+    expect(articleCreateMock).not.toHaveBeenCalled()
+  })
 })

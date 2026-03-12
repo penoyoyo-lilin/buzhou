@@ -41,7 +41,7 @@ const createArticleRequestSchema = z.object({
   }),
   domain: z.enum([
     // 基础领域分类
-    'agent', 'mcp', 'skill',
+    'mcp', 'skill',
     // MVP 内容分类
     'foundation', 'transport',
     'tools_filesystem', 'tools_postgres', 'tools_github',

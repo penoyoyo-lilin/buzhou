@@ -81,14 +81,14 @@ function CodeBlock({
                   <span className="pr-4 text-right text-muted-foreground select-none w-12 shrink-0">
                     {index + 1}
                   </span>
-                  <span className="whitespace-pre flex-1">
+                  <span className="whitespace-pre-wrap break-all flex-1 min-w-0">
                     {line || ' '}
                   </span>
                 </div>
               ))}
             </code>
           ) : (
-            <code className={`language-${language} whitespace-pre`}>
+            <code className={`language-${language} whitespace-pre-wrap break-all`}>
               {code}
             </code>
           )}

@@ -38,6 +38,8 @@ describe('Admin stats API resilience', () => {
     pageViewCountMock
       .mockResolvedValueOnce(100)
       .mockResolvedValueOnce(50)
+      .mockResolvedValueOnce(40)
+      .mockResolvedValueOnce(10)
 
     agentCountMock.mockResolvedValue(2)
     verifierCountMock.mockResolvedValue(3)

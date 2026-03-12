@@ -1,8 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
-import { idSchema } from '@/lib/validators'
 import { toJsonValue, fromJsonValue } from '@/core/db/utils'
+
+const ARTICLE_DOMAINS = [
+  'agent',
+  'mcp',
+  'skill',
+  'foundation',
+  'transport',
+  'tools_filesystem',
+  'tools_postgres',
+  'tools_github',
+  'error_codes',
+  'scenarios',
+] as const
+
+const DOMAIN_ALIASES: Record<string, string> = {
+  'tools-filesystem': 'tools_filesystem',
+  'tools-postgres': 'tools_postgres',
+  'tools-github': 'tools_github',
+  'error-codes': 'error_codes',
+}
+
+function normalizeDomain(domain: unknown): string | null {
+  if (typeof domain !== 'string') return null
+  const trimmed = domain.trim()
+  if (!trimmed) return null
+  return DOMAIN_ALIASES[trimmed] || trimmed
+}
+
+function isValidDomain(domain: string): boolean {
+  return (ARTICLE_DOMAINS as readonly string[]).includes(domain)
+}
 
 /**
  * GET /api/admin/articles/[id]
@@ -100,7 +130,18 @@ export async function PUT(
       updateData.content = toJsonValue(body.content)
     }
     if (body.domain) {
-      updateData.domain = body.domain
+      const normalizedDomain = normalizeDomain(body.domain)
+      if (!normalizedDomain || !isValidDomain(normalizedDomain)) {
+        return NextResponse.json(
+          errorResponse(ErrorCodes.INVALID_INPUT, '参数验证失败', {
+            errors: {
+              domain: ['domain 不合法'],
+            },
+          }),
+          { status: 400 }
+        )
+      }
+      updateData.domain = normalizedDomain
     }
     if (body.tags !== undefined) {
       updateData.tags = toJsonValue(body.tags)

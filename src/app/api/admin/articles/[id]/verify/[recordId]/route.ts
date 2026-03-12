@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
+import { verificationService } from '@/services/verification.service'
 import { z } from 'zod'
 
 // 验证记录更新验证
@@ -71,8 +72,8 @@ export async function PUT(
       data: updateData,
     })
 
-    // 更新文章验证状态
-    await updateArticleVerificationStatus(articleId)
+    // 更新文章验证状态与置信分数
+    await verificationService.updateArticleStatus(articleId)
 
     return NextResponse.json(successResponse(record))
   } catch (error) {
@@ -112,8 +113,8 @@ export async function DELETE(
       where: { id: recordId },
     })
 
-    // 更新文章验证状态
-    await updateArticleVerificationStatus(articleId)
+    // 更新文章验证状态与置信分数
+    await verificationService.updateArticleStatus(articleId)
 
     return NextResponse.json(successResponse(null))
   } catch (error) {
@@ -123,35 +124,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
-
-/**
- * 更新文章验证状态
- */
-async function updateArticleVerificationStatus(articleId: string) {
-  const records = await prisma.verificationRecord.findMany({
-    where: { articleId },
-    select: { result: true },
-  })
-
-  let verificationStatus: 'pending' | 'verified' | 'partial' | 'failed' = 'pending'
-
-  if (records.length > 0) {
-    const passedCount = records.filter(r => r.result === 'passed').length
-    const failedCount = records.filter(r => r.result === 'failed').length
-    const total = records.length
-
-    if (failedCount > 0) {
-      verificationStatus = 'failed'
-    } else if (passedCount === total) {
-      verificationStatus = 'verified'
-    } else {
-      verificationStatus = 'partial'
-    }
-  }
-
-  await prisma.article.update({
-    where: { id: articleId },
-    data: { verificationStatus },
-  })
 }

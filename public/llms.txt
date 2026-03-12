@@ -1,8 +1,8 @@
-# buzhou.io
+# www.buzhou.io
 
 > 不周山 - 面向 AI Agent 的可执行知识中枢
 > The Executable Knowledge Hub for AI Agents
-> 更新时间: 2026-03-11 | API 版本: v1
+> 更新时间: 2026-03-12 | API 版本: v1
 
 ## 概述
 
@@ -63,7 +63,7 @@
 ## 公开 API
 
 ### 基础信息
-- **基础URL**: `https://buzhou.io`
+- **基础URL**: `https://www.buzhou.io`
 - **认证方式**: 无需认证（公开接口）
 - **响应格式**: 默认 JSON；文章详情接口支持 `markdown` / `json`
 - **字符编码**: UTF-8
@@ -87,7 +87,7 @@ GET /api/v1/search
 
 **请求示例**:
 ```bash
-curl "https://buzhou.io/api/v1/search?q=mcp+connection&domain=mcp&status=verified"
+curl "https://www.buzhou.io/api/v1/search?q=mcp+connection&domain=mcp&status=verified"
 ```
 
 **响应示例**:
@@ -133,13 +133,13 @@ GET /api/v1/articles/{slug}
 **请求示例**:
 ```bash
 # 获取文章摘要（JSON）
-curl "https://buzhou.io/api/v1/articles/mcp-connection-failed"
+curl "https://www.buzhou.io/api/v1/articles/mcp-connection-failed"
 
 # 获取 Markdown 格式（适合 Agent 消费）
-curl "https://buzhou.io/api/v1/articles/mcp-connection-failed?format=markdown&lang=zh"
+curl "https://www.buzhou.io/api/v1/articles/mcp-connection-failed?format=markdown&lang=zh"
 
 # 获取完整 JSON 数据
-curl "https://buzhou.io/api/v1/articles/mcp-connection-failed?format=json"
+curl "https://www.buzhou.io/api/v1/articles/mcp-connection-failed?format=json"
 ```
 
 **响应头**:
@@ -173,13 +173,13 @@ POST /api/v1/pageview
 **方式一：Authorization Header**
 ```bash
 curl -H "Authorization: Bearer YOUR_API_KEY" \
-  "https://buzhou.io/api/internal/v1/articles"
+  "https://www.buzhou.io/api/internal/v1/articles"
 ```
 
 **方式二：自定义 Header**
 ```bash
 curl -H "x-internal-api-key: YOUR_API_KEY"\
-  "https://buzhou.io/api/internal/v1/articles"
+  "https://www.buzhou.io/api/internal/v1/articles"
 ```
 
 ### 端点列表
@@ -197,7 +197,7 @@ curl -H "x-internal-api-key: YOUR_API_KEY"\
 
 ### 创建文章示例
 ```bash
-curl -X POST "https://buzhou.io/api/internal/v1/articles" \
+curl -X POST "https://www.buzhou.io/api/internal/v1/articles" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -224,23 +224,30 @@ curl -X POST "https://buzhou.io/api/internal/v1/articles" \
 ### 场景一：查找MCP 连接问题解决方案
 ```bash
 # 1. 搜索相关文章
-curl "https://buzhou.io/api/v1/search?q=mcp+connection+failed&domain=mcp"
+curl "https://www.buzhou.io/api/v1/search?q=mcp+connection+failed&domain=mcp"
 
 # 2. 获取最相关文章的详细内容
-curl "https://buzhou.io/api/v1/articles/{slug}?format=markdown"
+curl "https://www.buzhou.io/api/v1/articles/{slug}?format=markdown"
 ```
 
 ### 场景二：获取已验证的工具使用指南
 ```bash
 # 筛选已验证的文件系统工具文章
-curl "https://buzhou.io/api/v1/search?domain=tools_filesystem&status=verified"
+curl "https://www.buzhou.io/api/v1/search?domain=tools_filesystem&status=verified"
 ```
 
 ### 场景三：Agent 自动发现 API
 访问任意页面时，响应头包含：
 ```
-X-Agent-API-Endpoint: https://buzhou.io/api/v1/search
-X-Agent-API-Docs: https://buzhou.io/zh/api-docs
+X-Agent-API-Endpoint: https://www.buzhou.io/api/v1/search
+X-Agent-API-Docs: https://www.buzhou.io/zh/api-docs
+```
+
+同时可通过以下入口发现站点能力：
+```
+https://www.buzhou.io/llms.txt
+https://www.buzhou.io/robots.txt
+https://www.buzhou.io/sitemap.xml
 ```
 
 ---
@@ -286,8 +293,8 @@ X-Agent-API-Docs: https://buzhou.io/zh/api-docs
 
 ## 相关链接
 
-- 官网: https://buzhou.io
-- API 文档: https://buzhou.io/zh/api-docs
+- 官网: https://www.buzhou.io
+- API 文档: https://www.buzhou.io/zh/api-docs
 - GitHub: https://github.com/penoyoyo-lilin/buzhou
 - 文档目录: https://github.com/penoyoyo-lilin/buzhou/tree/main/docs
 

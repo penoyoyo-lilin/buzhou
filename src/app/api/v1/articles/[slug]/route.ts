@@ -9,6 +9,26 @@ import { articleService } from '@/services/article.service'
 import { renderService } from '@/services/render.service'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 
+function buildAgentDiscoveryHeaders(origin: string, slug: string, lang: 'zh' | 'en') {
+  const articleEndpoint = `${origin}/api/v1/articles/${slug}`
+  const jsonFormatUrl = `${articleEndpoint}?format=json&lang=${lang}`
+  const markdownFormatUrl = `${articleEndpoint}?format=markdown&lang=${lang}`
+  const docsUrl = `${origin}/${lang}/api-docs`
+  const link = [
+    `<${jsonFormatUrl}>; rel="alternate"; type="application/json"`,
+    `<${markdownFormatUrl}>; rel="alternate"; type="text/markdown"`,
+    `<${docsUrl}>; rel="describedby"; type="text/html"`,
+  ].join(', ')
+
+  return {
+    articleEndpoint,
+    jsonFormatUrl,
+    markdownFormatUrl,
+    docsUrl,
+    link,
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
@@ -18,6 +38,7 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') as 'json' | 'markdown' | null
     const lang = (searchParams.get('lang') as 'zh' | 'en') || 'zh'
+    const discovery = buildAgentDiscoveryHeaders(request.nextUrl.origin, slug, lang)
 
     const article = await articleService.findBySlug(slug)
 
@@ -36,6 +57,9 @@ export async function GET(
           'Content-Type': 'application/json; charset=utf-8',
           'X-Article-Id': article.id,
           'X-Article-Slug': article.slug,
+          'X-Agent-API-Endpoint': discovery.articleEndpoint,
+          'X-Agent-API-Docs': discovery.docsUrl,
+          'Link': discovery.link,
         },
       })
     }
@@ -48,6 +72,9 @@ export async function GET(
           'Content-Type': 'text/markdown; charset=utf-8',
           'X-Article-Id': article.id,
           'X-Article-Slug': article.slug,
+          'X-Agent-API-Endpoint': discovery.articleEndpoint,
+          'X-Agent-API-Docs': discovery.docsUrl,
+          'Link': discovery.link,
         },
       })
     }
@@ -71,13 +98,15 @@ export async function GET(
         updatedAt: article.updatedAt,
         createdAt: article.createdAt,
         formats: {
-          json: `/api/v1/articles/${slug}?format=json&lang=${lang}`,
-          markdown: `/api/v1/articles/${slug}?format=markdown&lang=${lang}`,
+          json: discovery.jsonFormatUrl,
+          markdown: discovery.markdownFormatUrl,
         },
       }),
       {
         headers: {
-          'X-Agent-API-Endpoint': `${request.nextUrl.origin}/api/v1/articles/${slug}`,
+          'X-Agent-API-Endpoint': discovery.articleEndpoint,
+          'X-Agent-API-Docs': discovery.docsUrl,
+          'Link': discovery.link,
         },
       }
     )

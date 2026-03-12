@@ -11,23 +11,42 @@ import { z } from 'zod'
 
 // 查询参数验证
 const statsQuerySchema = z.object({
-  period: z.enum(['day', 'week', 'month']).default('day'),
+  period: z.enum(['day', 'week', 'month']).optional().default('day'),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 })
 
 const MAX_LOG_ROWS = 20000
+const MAX_DETAIL_ROWS = 500
 
 interface PageViewRow {
   path: string
   isBot: boolean
+  referrer: string | null
+  userAgent: string | null
   createdAt: Date
 }
 
 interface ApiRequestRow {
   endpoint: string
+  method: string
   statusCode: number
   responseTime: number
+  userAgent: string | null
   createdAt: Date
 }
+
+type ClientType = 'human' | 'bot'
+
+type BotVendor =
+  | 'human'
+  | 'google'
+  | 'bing'
+  | 'bytedance'
+  | 'openai'
+  | 'anthropic'
+  | 'perplexity'
+  | 'other_bot'
 
 async function safeStatsQuery<T>(
   label: string,
@@ -40,6 +59,72 @@ async function safeStatsQuery<T>(
     console.error(`[AdminStatsAPI] ${label} query failed:`, error)
     return fallback
   }
+}
+
+function getBotVendor(userAgent: string): BotVendor {
+  if (!userAgent) return 'other_bot'
+
+  const ua = userAgent.toLowerCase()
+  if (ua.includes('googlebot')) return 'google'
+  if (ua.includes('bingbot')) return 'bing'
+  if (ua.includes('bytespider') || ua.includes('bytedance')) return 'bytedance'
+  if (ua.includes('openai') || ua.includes('chatgpt-user')) return 'openai'
+  if (ua.includes('anthropic') || ua.includes('claude')) return 'anthropic'
+  if (ua.includes('perplexity')) return 'perplexity'
+  return 'other_bot'
+}
+
+function classifyPageViewClient(row: PageViewRow): { clientType: ClientType; botVendor: BotVendor } {
+  if (!row.isBot) {
+    return { clientType: 'human', botVendor: 'human' }
+  }
+
+  return {
+    clientType: 'bot',
+    botVendor: getBotVendor(row.userAgent || ''),
+  }
+}
+
+function classifyApiClient(row: ApiRequestRow): { clientType: ClientType; botVendor: BotVendor } {
+  const ua = (row.userAgent || '').toLowerCase()
+  const looksLikeBot = /bot|crawler|spider|bytespider|openai|chatgpt-user|anthropic|claude|perplexity|curl|python-requests|wget/.test(ua)
+
+  if (!looksLikeBot) {
+    return { clientType: 'human', botVendor: 'human' }
+  }
+
+  return {
+    clientType: 'bot',
+    botVendor: getBotVendor(row.userAgent || ''),
+  }
+}
+
+function parseDateOnly(input: string): Date {
+  return new Date(`${input}T00:00:00.000Z`)
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d
+}
+
+function aggregateBotVendors(items: Array<{ clientType: ClientType; botVendor: BotVendor }>) {
+  const counts = new Map<BotVendor, number>()
+  for (const item of items) {
+    if (item.clientType !== 'bot') continue
+    counts.set(item.botVendor, (counts.get(item.botVendor) || 0) + 1)
+  }
+
+  return Array.from(counts.entries())
+    .map(([vendor, count]) => ({ vendor, count }))
+    .sort((a, b) => b.count - a.count)
+}
+
+function getGranularityForRange(startDate: Date, endDateExclusive: Date): 'hour' | 'day' {
+  const diffMs = endDateExclusive.getTime() - startDate.getTime()
+  const diffDays = diffMs / (24 * 60 * 60 * 1000)
+  return diffDays <= 1 ? 'hour' : 'day'
 }
 
 export async function GET(request: NextRequest) {
@@ -56,21 +141,55 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const params = statsQuerySchema.parse({
       period: searchParams.get('period') || 'day',
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
     })
 
     // 计算时间范围
     const now = new Date()
+    let periodType: 'day' | 'week' | 'month' | 'custom' = params.period
     let startDate: Date
-    switch (params.period) {
-      case 'day':
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-        break
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case 'month':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        break
+    let endDateExclusive: Date
+
+    if (params.startDate || params.endDate) {
+      if (!params.startDate || !params.endDate) {
+        return Response.json(
+          errorResponse(ErrorCodes.VALIDATION_ERROR, 'startDate 与 endDate 必须同时提供'),
+          { status: 400 }
+        )
+      }
+
+      startDate = parseDateOnly(params.startDate)
+      endDateExclusive = addDays(parseDateOnly(params.endDate), 1)
+
+      if (startDate >= endDateExclusive) {
+        return Response.json(
+          errorResponse(ErrorCodes.VALIDATION_ERROR, '日期范围无效：startDate 不能晚于 endDate'),
+          { status: 400 }
+        )
+      }
+
+      periodType = 'custom'
+    } else {
+      switch (params.period) {
+        case 'day':
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          break
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          break
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          break
+      }
+      endDateExclusive = now
+    }
+
+    const timeRangeWhere = {
+      createdAt: {
+        gte: startDate,
+        lt: endDateExclusive,
+      },
     }
 
     // 获取核心统计数据（降级容错，避免单点失败导致整体 500）
@@ -98,20 +217,30 @@ export async function GET(request: NextRequest) {
       ),
     ])
 
-    const [totalViews, viewsInPeriod, pageViews] = await Promise.all([
+    const [totalViews, viewsInPeriod, humanViewsInPeriod, botViewsInPeriod, pageViews] = await Promise.all([
       safeStatsQuery('pageView.total', () => prisma.pageViewLog.count(), 0),
       safeStatsQuery(
         'pageView.inPeriod',
-        () => prisma.pageViewLog.count({ where: { createdAt: { gte: startDate } } }),
+        () => prisma.pageViewLog.count({ where: timeRangeWhere }),
+        0
+      ),
+      safeStatsQuery(
+        'pageView.humanInPeriod',
+        () => prisma.pageViewLog.count({ where: { ...timeRangeWhere, isBot: false } }),
+        0
+      ),
+      safeStatsQuery(
+        'pageView.botInPeriod',
+        () => prisma.pageViewLog.count({ where: { ...timeRangeWhere, isBot: true } }),
         0
       ),
       safeStatsQuery<PageViewRow[]>(
         'pageView.rows',
         () =>
           prisma.pageViewLog.findMany({
-            where: { createdAt: { gte: startDate } },
-            select: { path: true, isBot: true, createdAt: true },
-            orderBy: { createdAt: 'asc' },
+            where: timeRangeWhere,
+            select: { path: true, referrer: true, userAgent: true, isBot: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
             take: MAX_LOG_ROWS,
           }),
         []
@@ -122,16 +251,16 @@ export async function GET(request: NextRequest) {
       safeStatsQuery('apiRequest.total', () => prisma.apiRequestLog.count(), 0),
       safeStatsQuery(
         'apiRequest.inPeriod',
-        () => prisma.apiRequestLog.count({ where: { createdAt: { gte: startDate } } }),
+        () => prisma.apiRequestLog.count({ where: timeRangeWhere }),
         0
       ),
       safeStatsQuery<ApiRequestRow[]>(
         'apiRequest.rows',
         () =>
           prisma.apiRequestLog.findMany({
-            where: { createdAt: { gte: startDate } },
-            select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
-            orderBy: { createdAt: 'asc' },
+            where: timeRangeWhere,
+            select: { endpoint: true, method: true, statusCode: true, responseTime: true, userAgent: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
             take: MAX_LOG_ROWS,
           }),
         []
@@ -142,13 +271,44 @@ export async function GET(request: NextRequest) {
     const topEndpoints = getTopEndpointsFromRows(apiRequestLogs)
 
     // 按时间聚合数据
-    const granularity = params.period === 'day' ? 'hour' : 'day'
+    const granularity = getGranularityForRange(startDate, endDateExclusive)
     const trafficTimeSeries = aggregateByTime(pageViews, granularity, 'createdAt')
     const apiTimeSeries = aggregateByTime(apiRequestLogs, granularity, 'createdAt')
 
     // 计算人类访问和机器人访问
-    const humanViews = pageViews.filter((pv) => !pv.isBot).length
-    const botViews = pageViews.filter((pv) => pv.isBot).length
+    const pageViewClassified = pageViews.map((row) => ({
+      row,
+      ...classifyPageViewClient(row),
+    }))
+    const apiRequestClassified = apiRequestLogs.map((row) => ({
+      row,
+      ...classifyApiClient(row),
+    }))
+
+    const pageViewDetails = pageViewClassified.slice(0, MAX_DETAIL_ROWS).map((item) => ({
+      createdAt: item.row.createdAt.toISOString(),
+      path: item.row.path,
+      referrer: item.row.referrer,
+      userAgent: item.row.userAgent,
+      clientType: item.clientType,
+      botVendor: item.botVendor,
+    }))
+
+    const apiCallDetails = apiRequestClassified.slice(0, MAX_DETAIL_ROWS).map((item) => ({
+      createdAt: item.row.createdAt.toISOString(),
+      endpoint: item.row.endpoint,
+      method: item.row.method,
+      statusCode: item.row.statusCode,
+      responseTime: item.row.responseTime,
+      userAgent: item.row.userAgent,
+      clientType: item.clientType,
+      botVendor: item.botVendor,
+    }))
+
+    const humanViews = humanViewsInPeriod
+    const botViews = botViewsInPeriod
+    const pageViewBotVendors = aggregateBotVendors(pageViewClassified)
+    const apiCallBotVendors = aggregateBotVendors(apiRequestClassified)
 
     // API 成功率
     const successCount = apiRequestLogs.filter((r) => r.statusCode < 400).length
@@ -174,27 +334,41 @@ export async function GET(request: NextRequest) {
           articles: { total: totalArticles, published: publishedArticles },
           views: { total: totalViews, inPeriod: viewsInPeriod },
           apiRequests: { total: totalApiRequests, inPeriod: apiRequestsInPeriod },
+          metrics: {
+            apiCalls: apiRequestsInPeriod,
+            pageViews: viewsInPeriod,
+            humanViews,
+            botViews,
+          },
           agents: { active: activeAgents },
           verifiers: { active: activeVerifiers },
         },
         traffic: {
-          total: pageViews.length,
+          total: viewsInPeriod,
           humanViews,
           botViews,
           timeSeries: trafficTimeSeries,
           topPages,
         },
         api: {
-          total: apiRequestLogs.length,
+          total: apiRequestsInPeriod,
           successRate,
           avgResponseTime,
           timeSeries: apiTimeSeries,
           topEndpoints,
         },
         period: {
-          type: params.period,
+          type: periodType,
           start: startDate.toISOString(),
-          end: now.toISOString(),
+          end: new Date(endDateExclusive.getTime() - 1).toISOString(),
+        },
+        details: {
+          apiCalls: apiCallDetails,
+          pageViews: pageViewDetails,
+          botVendors: {
+            pageViews: pageViewBotVendors,
+            apiCalls: apiCallBotVendors,
+          },
         },
         diagnostics: {
           logRowsCapped,

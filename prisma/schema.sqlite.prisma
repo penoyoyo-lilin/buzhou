@@ -165,6 +165,9 @@ model AgentApp {
   name             String
   description      String
   owner            String
+  externalAgentId  String?   @unique @map("external_agent_id")
+  fingerprintHash  String?   @map("fingerprint_hash")
+  registrationSource String  @default("manual") @map("registration_source") // manual, auto
   apiKeyHash       String?   @map("api_key_hash")
   apiKeyPrefix     String?   @map("api_key_prefix")
   apiKeyCreatedAt  DateTime? @map("api_key_created_at")
@@ -172,6 +175,8 @@ model AgentApp {
   monthlyLimit     Int       @default(30000) @map("monthly_limit")
   usedToday        Int       @default(0) @map("used_today")
   usedThisMonth    Int       @default(0) @map("used_this_month")
+  usageDay         String?   @map("usage_day")   // YYYY-MM-DD
+  usageMonth       String?   @map("usage_month") // YYYY-MM
   totalRequests    Int       @default(0) @map("total_requests")
   successRequests  Int       @default(0) @map("success_requests")
   failedRequests   Int       @default(0) @map("failed_requests")
@@ -182,6 +187,7 @@ model AgentApp {
 
   @@index([owner])
   @@index([status])
+  @@index([fingerprintHash])
   @@map("agent_apps")
 }
 

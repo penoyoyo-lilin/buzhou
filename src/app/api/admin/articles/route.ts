@@ -35,7 +35,7 @@ const createArticleSchema = z.object({
     en: z.string().min(1),
   }),
   domain: z.enum([
-    'agent', 'mcp', 'skill',
+    'mcp', 'skill',
     'foundation', 'transport',
     'tools_filesystem', 'tools_postgres', 'tools_github',
     'error_codes', 'scenarios',

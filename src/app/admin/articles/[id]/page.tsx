@@ -563,7 +563,9 @@ export default function ArticleEditPage() {
                 onChange={(e) => setArticle({ ...article, domain: e.target.value as ArticleDomain })}
                 className="w-full border rounded-md px-3 py-2 text-sm"
               >
-                <option value="agent">Agent</option>
+                {!isNew && article.domain === 'agent' && (
+                  <option value="agent">Agent（旧分类）</option>
+                )}
                 <option value="mcp">MCP</option>
                 <option value="skill">Skill</option>
                 <option value="foundation">基础认知与协议</option>

@@ -73,3 +73,6 @@ tests/unit/article.page.meta.test.ts
 tests/unit/article.service.public.test.ts
 tests/unit/render.service.api-access.test.ts
 AGENTS.md
+docs/task-plans/admin-stats-optimization-20260312.md
+docs/task-plans/geo-optimization-20260312.md
+prisma/data/buzhou.db

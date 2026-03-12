@@ -153,16 +153,30 @@ export class VerificationService {
    * 更新文章验证状态
    */
   async updateArticleStatus(articleId: string): Promise<void> {
-    const records = await prisma.verificationRecord.findMany({
-      where: { articleId },
-      select: { result: true },
-    })
+    const [records, article] = await Promise.all([
+      prisma.verificationRecord.findMany({
+        where: { articleId },
+        select: { result: true, verifierId: true, verifiedAt: true },
+      }),
+      prisma.article.findUnique({
+        where: { id: articleId },
+        select: { metadata: true },
+      }),
+    ])
 
     const status = this.calculateStatus(records.map(r => r.result))
+    const confidenceScore = this.calculateConfidenceScore(records, status)
+    const currentMetadata = fromJsonValue<Record<string, unknown>>(article?.metadata, {})
 
     await prisma.article.update({
       where: { id: articleId },
-      data: { verificationStatus: status },
+      data: {
+        verificationStatus: status,
+        metadata: toJsonValue({
+          ...currentMetadata,
+          confidenceScore,
+        }) as any,
+      },
     })
   }
 
@@ -182,6 +196,77 @@ export class VerificationService {
     if (passed > 0) return 'partial'
 
     return 'pending'
+  }
+
+  private calculateConfidenceScore(
+    records: Array<{
+      result: string
+      verifierId: number
+      verifiedAt: Date
+    }>,
+    status: VerificationStatus
+  ): number {
+    const total = records.length
+    const passed = records.filter(r => r.result === 'passed').length
+    const failed = records.filter(r => r.result === 'failed').length
+    const partial = records.filter(r => r.result === 'partial').length
+    const uniqueVerifiers = new Set(records.map(r => r.verifierId)).size
+
+    const priorByStatus: Record<VerificationStatus, number> = {
+      pending: 72,
+      partial: 78,
+      verified: 88,
+      failed: 55,
+      deprecated: 50,
+    }
+
+    const prior = priorByStatus[status] ?? 70
+    const observed = total > 0
+      ? ((passed + 0.6 * partial) / total) * 100
+      : prior
+    const weight = Math.min(total / 8, 1)
+    const core = prior * (1 - weight) + observed * weight
+
+    const verifierBonus = Math.min(uniqueVerifiers, 3) * 2
+    const latestVerifiedAt = records.reduce<Date | null>((latest, record) => {
+      if (!latest || record.verifiedAt > latest) {
+        return record.verifiedAt
+      }
+      return latest
+    }, null)
+    const recencyBonus = this.calculateRecencyBonus(latestVerifiedAt)
+    const highFailPenalty = total > 0 && failed / total > 0.5 ? 6 : 0
+
+    let score = Math.round(core + verifierBonus + recencyBonus - highFailPenalty)
+    score = this.clamp(score, 45, 98)
+
+    // 硬约束（用户确认）
+    if (status === 'verified' && total >= 2) {
+      score = Math.max(score, 90)
+    }
+    if (status === 'verified' && total >= 5) {
+      score = Math.max(score, 95)
+    }
+    if (status === 'failed' && total >= 3) {
+      score = Math.min(score, 60)
+    }
+
+    return this.clamp(score, 0, 100)
+  }
+
+  private calculateRecencyBonus(latestVerifiedAt: Date | null): number {
+    if (!latestVerifiedAt) return 0
+
+    const ageMs = Date.now() - latestVerifiedAt.getTime()
+    const ageDays = ageMs / (24 * 60 * 60 * 1000)
+
+    if (ageDays <= 7) return 4
+    if (ageDays <= 30) return 2
+    return 0
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value))
   }
 
   /**
