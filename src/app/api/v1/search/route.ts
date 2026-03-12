@@ -39,6 +39,40 @@ async function withTracking(
   return response
 }
 
+type SearchListItem = {
+  id: string
+  slug: string
+  title: { zh: string; en: string }
+  summary: { zh: string; en: string }
+  domain: string
+  tags: string[]
+  verificationStatus: string
+  confidenceScore: number
+  createdAt: string
+  updatedAt: string
+}
+
+function toSafeISOString(value: unknown): string {
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'string') {
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString()
+  }
+  return new Date(0).toISOString()
+}
+
+function buildEmptyResponse(params: { page: number; pageSize: number }) {
+  return successResponse({
+    items: [] as SearchListItem[],
+    pagination: {
+      page: params.page,
+      pageSize: params.pageSize,
+      total: 0,
+      totalPages: 0,
+    },
+  })
+}
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   try {
@@ -67,31 +101,56 @@ export async function GET(request: NextRequest) {
       // 由于 JSON 字段存储，我们需要在应用层过滤
     }
 
-    // 查询总数
-    const total = await prisma.article.count({ where })
+    let total = 0
+    let articles: Array<{
+      id: string
+      slug: string
+      title: unknown
+      summary: unknown
+      domain: string
+      tags: unknown
+      verificationStatus?: string
+      metadata?: unknown
+      createdAt: unknown
+      updatedAt: unknown
+    }> = []
 
-    // 分页查询
-    const articles = await prisma.article.findMany({
-      where,
-      orderBy: [
-        { publishedAt: 'desc' },
-        { createdAt: 'desc' },
-      ],
-      skip: (params.page - 1) * params.pageSize,
-      take: params.pageSize,
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        summary: true,
-        domain: true,
-        tags: true,
-        verificationStatus: true,
-        metadata: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    try {
+      total = await prisma.article.count({ where })
+      articles = await prisma.article.findMany({
+        where,
+        orderBy: [
+          { publishedAt: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        skip: (params.page - 1) * params.pageSize,
+        take: params.pageSize,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          summary: true,
+          domain: true,
+          tags: true,
+          verificationStatus: true,
+          metadata: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+    } catch (dbError) {
+      console.error('[SearchAPI] primary query failed, fallback to empty result:', dbError)
+      const response = NextResponse.json(
+        buildEmptyResponse({ page: params.page, pageSize: params.pageSize }),
+        {
+          headers: {
+            'X-Agent-API-Endpoint': `${request.nextUrl.origin}/api/v1/search`,
+            'X-Agent-API-Docs': `${request.nextUrl.origin}/${params.lang}/api-docs`,
+          },
+        }
+      )
+      return await withTracking(request, startTime, response)
+    }
 
    // 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
   const parseJsonField = <T>(value: unknown, defaultValue: T): T => {
@@ -131,17 +190,17 @@ export async function GET(request: NextRequest) {
     }
 
     // 构建响应
-    const items = results.map((article) => ({
+    const items: SearchListItem[] = results.map((article) => ({
       id: article.id,
       slug: article.slug,
       title: article.title,
       summary: article.summary,
       domain: article.domain,
       tags: article.tags,
-verificationStatus: article.verificationStatus,
-confidenceScore: (article.metadata as any)?.confidenceScore || 0,
-createdAt: article.createdAt.toISOString(),
-updatedAt: article.updatedAt.toISOString(),
+      verificationStatus: article.verificationStatus || 'pending',
+      confidenceScore: (article.metadata as any)?.confidenceScore || 0,
+      createdAt: toSafeISOString(article.createdAt),
+      updatedAt: toSafeISOString(article.updatedAt),
     }))
 
     const totalPages = Math.ceil(total / params.pageSize)
@@ -177,9 +236,16 @@ updatedAt: article.updatedAt.toISOString(),
       return await withTracking(request, startTime, response)
     }
 
+    // 公开搜索接口失败时降级返回空结果，避免首页整体报错
+    const fallbackParams = { page: 1, pageSize: 20 }
     const response = NextResponse.json(
-      errorResponse(ErrorCodes.INTERNAL_ERROR, '服务器内部错误'),
-      { status: 500 }
+      buildEmptyResponse(fallbackParams),
+      {
+        headers: {
+          'X-Agent-API-Endpoint': `${request.nextUrl.origin}/api/v1/search`,
+          'X-Agent-API-Docs': `${request.nextUrl.origin}/zh/api-docs`,
+        },
+      }
     )
     return await withTracking(request, startTime, response)
   }

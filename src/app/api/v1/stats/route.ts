@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
+import { successResponse } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
 import { agentTrackingService } from '@/services/agent-tracking.service'
 
@@ -11,6 +11,37 @@ const NO_CACHE_HEADERS = {
   Pragma: 'no-cache',
   Expires: '0',
 } as const
+
+function buildDefaultStats() {
+  return {
+    articles: {
+      total: 0,
+      published: 0,
+      verified: 0,
+      weeklyNew: 0,
+    },
+    agents: {
+      active: 0,
+    },
+    apiRequests: {
+      total: 0,
+      source: 'none' as const,
+    },
+  }
+}
+
+async function safeCount(
+  key: string,
+  fn: () => Promise<number>,
+  fallback = 0
+): Promise<number> {
+  try {
+    return await fn()
+  } catch (error) {
+    console.error(`[PublicStatsAPI] ${key} failed:`, error)
+    return fallback
+  }
+}
 
 async function getApiRequestsTotal(): Promise<{ total: number; source: 'apiRequestLog' | 'agentApp' | 'none' }> {
   try {
@@ -77,23 +108,25 @@ export async function GET(request: NextRequest) {
       verifiedArticlesCount,
       apiRequests,
     ] = await Promise.all([
-      // 已发布文章数量
-      prisma.article.count({
-        where: publishedWhere,
-      }),
-      // 文章总数
-      prisma.article.count(),
-      // 活跃 Agent 数量
-      prisma.agentApp.count({
-        where: { status: 'active' },
-      }),
-      // 已验证文章数量
-      prisma.article.count({
-        where: {
-          verificationStatus: 'verified',
-          ...publishedWhere,
-        },
-      }),
+      safeCount('article.published', () =>
+        prisma.article.count({
+          where: publishedWhere,
+        })
+      ),
+      safeCount('article.total', () => prisma.article.count()),
+      safeCount('agent.active', () =>
+        prisma.agentApp.count({
+          where: { status: 'active' },
+        })
+      ),
+      safeCount('article.verified', () =>
+        prisma.article.count({
+          where: {
+            verificationStatus: 'verified',
+            ...publishedWhere,
+          },
+        })
+      ),
       // API 请求总数（优先日志口径，失败回退）
       getApiRequestsTotal(),
     ])
@@ -102,20 +135,22 @@ export async function GET(request: NextRequest) {
     const oneWeekAgo = new Date()
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
-    const weeklyNewArticles = await prisma.article.count({
-      where: {
-        OR: [
-          {
-            publishedAt: { gte: oneWeekAgo },
-          },
-          {
-            publishedAt: null,
-            status: 'published',
-            createdAt: { gte: oneWeekAgo },
-          },
-        ],
-      },
-    })
+    const weeklyNewArticles = await safeCount('article.weeklyNew', () =>
+      prisma.article.count({
+        where: {
+          OR: [
+            {
+              publishedAt: { gte: oneWeekAgo },
+            },
+            {
+              publishedAt: null,
+              status: 'published',
+              createdAt: { gte: oneWeekAgo },
+            },
+          ],
+        },
+      })
+    )
 
     const stats = {
       articles: {
@@ -140,9 +175,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Stats API error:', error)
     const response = NextResponse.json(
-      errorResponse(ErrorCodes.INTERNAL_ERROR, '获取统计数据失败'),
+      successResponse(buildDefaultStats()),
       {
-        status: 500,
         headers: NO_CACHE_HEADERS,
       }
     )

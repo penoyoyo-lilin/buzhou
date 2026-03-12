@@ -142,4 +142,29 @@ describe('Public stats API accuracy', () => {
     expect(payload.data?.apiRequests?.total).toBe(0)
     expect(payload.data?.apiRequests?.source).toBe('none')
   })
+
+  it('should not return 500 when article stats query fails', async () => {
+    articleCountMock.mockReset()
+    articleCountMock.mockRejectedValue(new Error('articles relation missing'))
+
+    const { GET } = await import('@/app/api/v1/stats/route')
+    const request = new NextRequest('http://localhost:3000/api/v1/stats')
+
+    const response = await GET(request)
+    const payload = await response.json() as {
+      success: boolean
+      data?: {
+        articles?: { total?: number; published?: number; verified?: number; weeklyNew?: number }
+      }
+    }
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(payload.data?.articles).toEqual({
+      total: 0,
+      published: 0,
+      verified: 0,
+      weeklyNew: 0,
+    })
+  })
 })
