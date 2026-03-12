@@ -14,10 +14,6 @@ const statsQuerySchema = z.object({
   period: z.enum(['day', 'week', 'month']).default('day'),
 })
 
-<<<<<<< HEAD
-export async function GET(request: NextRequest) {
-  try {
-=======
 const MAX_LOG_ROWS = 20000
 
 interface PageViewRow {
@@ -48,7 +44,6 @@ async function safeStatsQuery<T>(
 
 export async function GET(request: NextRequest) {
   try {
->>>>>>> codex/branch01
     // 验证管理员认证
     const admin = await verifyAdminAuth(request)
     if (!admin) {
@@ -82,49 +77,25 @@ export async function GET(request: NextRequest) {
     const [
       totalArticles,
       publishedArticles,
-<<<<<<< HEAD
-      totalViews,
-      viewsInPeriod,
-      activeAgents,
-      activeVerifiers,
-      pageViews,
-      topPages,
-    ] = await Promise.all([
-      // 文章统计
-      prisma.article.count(),
-      prisma.article.count({ where: { status: 'published' } }),
-      // 浏览量统计
-      prisma.pageViewLog.count(),
-      prisma.pageViewLog.count({
-        where: { createdAt: { gte: startDate } },
-      }),
-      // 活跃 Agent
-      prisma.agentApp.count({ where: { status: 'active' } }),
-      // 活跃验证人
-      prisma.verifier.count({ where: { status: 'active' } }),
-      // 时间范围内的页面浏览
-      prisma.pageViewLog.findMany({
-        where: { createdAt: { gte: startDate } },
-        select: { path: true, isBot: true, createdAt: true },
-        orderBy: { createdAt: 'asc' },
-      }),
-      // Top 页面
-      getTopPages(startDate),
-    ])
-    const [totalApiRequests, apiRequestsInPeriod, apiRequestLogs, topEndpoints] = await Promise.all([
-      safeApiRequestCount(),
-      safeApiRequestCount(startDate),
-      safeApiRequestLogs(startDate),
-      getTopEndpoints(startDate),
-=======
       activeAgents,
       activeVerifiers,
     ] = await Promise.all([
       safeStatsQuery('article.total', () => prisma.article.count(), 0),
-      safeStatsQuery('article.published', () => prisma.article.count({ where: { status: 'published' } }), 0),
-      safeStatsQuery('agent.active', () => prisma.agentApp.count({ where: { status: 'active' } }), 0),
-      safeStatsQuery('verifier.active', () => prisma.verifier.count({ where: { status: 'active' } }), 0),
->>>>>>> codex/branch01
+      safeStatsQuery(
+        'article.published',
+        () => prisma.article.count({ where: { status: 'published' } }),
+        0
+      ),
+      safeStatsQuery(
+        'agent.active',
+        () => prisma.agentApp.count({ where: { status: 'active' } }),
+        0
+      ),
+      safeStatsQuery(
+        'verifier.active',
+        () => prisma.verifier.count({ where: { status: 'active' } }),
+        0
+      ),
     ])
 
     const [totalViews, viewsInPeriod, pageViews] = await Promise.all([
@@ -136,12 +107,13 @@ export async function GET(request: NextRequest) {
       ),
       safeStatsQuery<PageViewRow[]>(
         'pageView.rows',
-        () => prisma.pageViewLog.findMany({
-          where: { createdAt: { gte: startDate } },
-          select: { path: true, isBot: true, createdAt: true },
-          orderBy: { createdAt: 'asc' },
-          take: MAX_LOG_ROWS,
-        }),
+        () =>
+          prisma.pageViewLog.findMany({
+            where: { createdAt: { gte: startDate } },
+            select: { path: true, isBot: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+            take: MAX_LOG_ROWS,
+          }),
         []
       ),
     ])
@@ -155,12 +127,13 @@ export async function GET(request: NextRequest) {
       ),
       safeStatsQuery<ApiRequestRow[]>(
         'apiRequest.rows',
-        () => prisma.apiRequestLog.findMany({
-          where: { createdAt: { gte: startDate } },
-          select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
-          orderBy: { createdAt: 'asc' },
-          take: MAX_LOG_ROWS,
-        }),
+        () =>
+          prisma.apiRequestLog.findMany({
+            where: { createdAt: { gte: startDate } },
+            select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
+            orderBy: { createdAt: 'asc' },
+            take: MAX_LOG_ROWS,
+          }),
         []
       ),
     ])
@@ -179,16 +152,21 @@ export async function GET(request: NextRequest) {
 
     // API 成功率
     const successCount = apiRequestLogs.filter((r) => r.statusCode < 400).length
-    const successRate = apiRequestLogs.length > 0
-      ? Math.round((successCount / apiRequestLogs.length) * 100)
-      : 0
+    const successRate =
+      apiRequestLogs.length > 0
+        ? Math.round((successCount / apiRequestLogs.length) * 100)
+        : 0
 
     // 平均响应时间
-    const avgResponseTime = apiRequestLogs.length > 0
-      ? Math.round(apiRequestLogs.reduce((sum, r) => sum + r.responseTime, 0) / apiRequestLogs.length)
-      : 0
+    const avgResponseTime =
+      apiRequestLogs.length > 0
+        ? Math.round(
+            apiRequestLogs.reduce((sum, r) => sum + r.responseTime, 0) / apiRequestLogs.length
+          )
+        : 0
 
-    const logRowsCapped = pageViews.length >= MAX_LOG_ROWS || apiRequestLogs.length >= MAX_LOG_ROWS
+    const logRowsCapped =
+      pageViews.length >= MAX_LOG_ROWS || apiRequestLogs.length >= MAX_LOG_ROWS
 
     return Response.json(
       successResponse({
@@ -262,13 +240,7 @@ function getTopPagesFromRows(pageViews: PageViewRow[]) {
 /**
  * 从 API 请求数据计算热门端点
  */
-
-async function getTopEndpoints(startDate: Date) {
-  const apiRequests = await safeApiRequestLogs(startDate, false)
-
-
 function getTopEndpointsFromRows(apiRequests: ApiRequestRow[]) {
-
   const endpointStats = new Map<string, { count: number; errors: number; totalTime: number }>()
 
   apiRequests.forEach((req) => {
@@ -290,53 +262,6 @@ function getTopEndpointsFromRows(apiRequests: ApiRequestRow[]) {
     .slice(0, 10)
 }
 
-function isMissingTableError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  return message.includes('P2021') || message.includes('does not exist') || message.includes('no such table')
-}
-
-async function safeApiRequestCount(startDate?: Date): Promise<number> {
-  try {
-    return await prisma.apiRequestLog.count(
-      startDate ? { where: { createdAt: { gte: startDate } } } : undefined
-    )
-  } catch (error) {
-    if (isMissingTableError(error)) {
-      console.warn('[AdminStats] api_request_logs table is missing, fallback count=0')
-      return 0
-    }
-    throw error
-  }
-}
-
-async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true): Promise<Array<{
-  endpoint: string
-  statusCode: number
-  responseTime: number
-  createdAt?: Date
-}>> {
-  try {
-    if (withCreatedAt) {
-      return await prisma.apiRequestLog.findMany({
-        where: { createdAt: { gte: startDate } },
-        select: { endpoint: true, statusCode: true, responseTime: true, createdAt: true },
-        orderBy: { createdAt: 'asc' },
-      })
-    }
-
-    return await prisma.apiRequestLog.findMany({
-      where: { createdAt: { gte: startDate } },
-      select: { endpoint: true, statusCode: true, responseTime: true },
-    })
-  } catch (error) {
-    if (isMissingTableError(error)) {
-      console.warn('[AdminStats] api_request_logs table is missing, fallback logs=[]')
-      return []
-    }
-    throw error
-  }
-}
-
 /**
  * 按时间聚合数据
  */
@@ -352,9 +277,10 @@ function aggregateByTime<T>(
     const date = rawTime instanceof Date ? rawTime : new Date(String(rawTime))
     if (Number.isNaN(date.getTime())) return
 
-    const key = granularity === 'hour'
-      ? `${date.getHours().toString().padStart(2, '0')}:00`
-      : `${date.getMonth() + 1}-${date.getDate().toString().padStart(2, '0')}`
+    const key =
+      granularity === 'hour'
+        ? `${date.getHours().toString().padStart(2, '0')}:00`
+        : `${date.getMonth() + 1}-${date.getDate().toString().padStart(2, '0')}`
     counts.set(key, (counts.get(key) || 0) + 1)
   })
 
