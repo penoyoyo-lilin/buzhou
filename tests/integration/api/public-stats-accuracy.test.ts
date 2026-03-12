@@ -56,6 +56,7 @@ describe('Public stats API accuracy', () => {
 
     expect(response.status).toBe(200)
     expect(payload.success).toBe(true)
+    expect(response.headers.get('cache-control')).toContain('no-store')
 
     expect(payload.data?.apiRequests?.total).toBe(999)
     expect(payload.data?.apiRequests?.source).toBe('apiRequestLog')
@@ -77,7 +78,7 @@ describe('Public stats API accuracy', () => {
       })
     )
 
-    // verified 统计仅计算已发布内容
+    // verified 统计仅计算已发布口径（status=published 或 publishedAt 非空）
     expect(articleCountMock).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({
@@ -95,7 +96,6 @@ describe('Public stats API accuracy', () => {
     expect(articleCountMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: 'published',
           OR: expect.any(Array),
         }),
       })

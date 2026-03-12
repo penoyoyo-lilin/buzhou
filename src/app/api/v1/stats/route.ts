@@ -3,6 +3,15 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { prisma } from '@/core/db/client'
 import { agentTrackingService } from '@/services/agent-tracking.service'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+  Pragma: 'no-cache',
+  Expires: '0',
+} as const
+
 async function getApiRequestsTotal(): Promise<{ total: number; source: 'apiRequestLog' | 'agentApp' | 'none' }> {
   try {
     const fromLog = await prisma.apiRequestLog.count()
@@ -124,13 +133,18 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    const response = NextResponse.json(successResponse(stats))
+    const response = NextResponse.json(successResponse(stats), {
+      headers: NO_CACHE_HEADERS,
+    })
     return await withTracking(request, startTime, response)
   } catch (error) {
     console.error('Stats API error:', error)
     const response = NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '获取统计数据失败'),
-      { status: 500 }
+      {
+        status: 500,
+        headers: NO_CACHE_HEADERS,
+      }
     )
     return await withTracking(request, startTime, response)
   }
