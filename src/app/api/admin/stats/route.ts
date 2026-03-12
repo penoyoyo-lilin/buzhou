@@ -218,7 +218,25 @@ async function safeApiRequestCount(startDate?: Date): Promise<number> {
   }
 }
 
-async function safeApiRequestLogs(startDate: Date, withCreatedAt: boolean = true) {
+type ApiRequestLogWithTime = {
+  endpoint: string
+  statusCode: number
+  responseTime: number
+  createdAt: Date
+}
+
+type ApiRequestLogWithoutTime = {
+  endpoint: string
+  statusCode: number
+  responseTime: number
+}
+
+async function safeApiRequestLogs(startDate: Date, withCreatedAt?: true): Promise<ApiRequestLogWithTime[]>
+async function safeApiRequestLogs(startDate: Date, withCreatedAt: false): Promise<ApiRequestLogWithoutTime[]>
+async function safeApiRequestLogs(
+  startDate: Date,
+  withCreatedAt: boolean = true
+): Promise<ApiRequestLogWithTime[] | ApiRequestLogWithoutTime[]> {
   try {
     if (withCreatedAt) {
       return await prisma.apiRequestLog.findMany({

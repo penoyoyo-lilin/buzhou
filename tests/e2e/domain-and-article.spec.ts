@@ -1,13 +1,14 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('Domain normalization and article detail view', () => {
-  test('internal create should be visible on homepage search without extra filter', async ({ request }) => {
+  test('internal create should be visible on homepage search without extra filter', async ({ request, page }) => {
     const internalApiKey = process.env.INTERNAL_API_KEY
     test.skip(!internalApiKey, 'INTERNAL_API_KEY is not configured for E2E')
 
     const unique = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
     const slug = `e2e-internal-visible-${unique}`
     const keyword = `e2e internal visible ${unique}`
+    const author = `playwright-e2e-${unique}`
     let createdArticleId: string | undefined
 
     try {
@@ -22,7 +23,7 @@ test.describe('Domain normalization and article detail view', () => {
           summary: { zh: `摘要 ${keyword}`, en: `Summary ${keyword}` },
           content: { zh: '# 内容', en: '# Content' },
           domain: 'foundation',
-          createdBy: 'playwright-e2e',
+          author,
           skipVerification: true,
         },
       })
@@ -55,6 +56,14 @@ test.describe('Domain normalization and article detail view', () => {
       expect(searchPayload.success).toBe(true)
       const found = searchPayload.data?.items?.some((item) => item.id === createdArticleId)
       expect(found).toBe(true)
+
+      await page.goto(`/zh/articles/${slug}`)
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      await expect(page.locator('header')).toContainText(`作者 ${author}`)
+
+      await page.getByRole('tab', { name: 'JSON 视图' }).click()
+      const jsonCode = page.getByRole('tabpanel', { name: 'JSON 视图' }).locator('code').first()
+      await expect(jsonCode).toContainText(`\"author\": \"${author}\"`)
     } finally {
       if (createdArticleId) {
         await request.delete(`/api/internal/v1/articles/${createdArticleId}`, {

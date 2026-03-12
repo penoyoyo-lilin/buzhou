@@ -5,17 +5,19 @@ interface AdminArticleDetailResponse {
   data?: {
     id?: string
     domain?: string
+    createdBy?: string
   }
 }
 
 test.describe('Admin article domain persistence', () => {
-  test('should persist domain after create and edit', async ({ page, request }) => {
+  test('should persist domain and author after create and edit', async ({ page, request }) => {
     test.slow()
 
     const uniqueId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
     const slug = `e2e-admin-domain-${uniqueId}`
     const createdDomain = 'foundation'
     const updatedDomain = 'tools_filesystem'
+    const author = `admin-e2e-${uniqueId}`
     let articleId: string | undefined
 
     page.on('dialog', async (dialog) => {
@@ -28,6 +30,14 @@ test.describe('Admin article domain persistence', () => {
       const payload = (await response.json()) as AdminArticleDetailResponse
       expect(payload.success).toBe(true)
       return payload.data?.domain
+    }
+
+    const fetchAuthorById = async (id: string): Promise<string | undefined> => {
+      const response = await request.get(`/api/admin/articles/${id}`)
+      expect(response.status()).toBe(200)
+      const payload = (await response.json()) as AdminArticleDetailResponse
+      expect(payload.success).toBe(true)
+      return payload.data?.createdBy
     }
 
     try {
@@ -58,6 +68,7 @@ test.describe('Admin article domain persistence', () => {
       await page.locator('#contentZh').fill('# 测试内容\n\n用于 E2E 验证。')
       await page.locator('#contentEn').fill('# Test Content\n\nFor E2E validation.')
       await page.locator('#domain').selectOption(createdDomain)
+      await page.locator('#author').fill(author)
 
       const createResponsePromise = page.waitForResponse((response) => {
         const req = response.request()
@@ -74,6 +85,7 @@ test.describe('Admin article domain persistence', () => {
       if (!articleId) return
 
       await expect.poll(async () => fetchDomainById(articleId!)).toBe(createdDomain)
+      await expect.poll(async () => fetchAuthorById(articleId!)).toBe(author)
 
       await page.goto(`/admin/articles/${articleId}`)
       await expect(page.getByRole('heading', { name: '编辑文章' })).toBeVisible()

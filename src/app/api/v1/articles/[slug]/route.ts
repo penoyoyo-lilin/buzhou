@@ -60,6 +60,7 @@ export async function GET(
         title: article.title,
         summary: article.summary,
         domain: article.domain,
+        author: article.createdBy,
         tags: article.tags,
         keywords: article.keywords,
         verificationStatus: article.verificationStatus,

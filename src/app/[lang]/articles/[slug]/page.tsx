@@ -7,7 +7,7 @@ import { VerificationTimeline } from '@/components/shared/verification-timeline'
 import { ArticleViewTabs } from '@/components/shared/article-view-tabs'
 import { SchemaOrg, getArticleSchema, getTechArticleSchema } from '@/components/shared/schema-org'
 import { articleService } from '@/services/article.service'
-import { formatDateTime, cn } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
 import { t, type Locale } from '@/lib/i18n/translations'
 import { renderService } from '@/services/render.service'
 import { getPublishedDisplayDate } from './meta-utils'
@@ -65,7 +65,8 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
       description: summary,
       url: articleUrl,
       datePublished: publishedDate,
-      dateModified: article.updatedAt
+      dateModified: article.updatedAt,
+      author: article.createdBy,
     }),
     getTechArticleSchema({
       title,
@@ -73,6 +74,7 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
       url: articleUrl,
       datePublished: publishedDate,
       dateModified: article.updatedAt,
+      author: article.createdBy,
       dependencies: article.metadata.runtimeEnv?.map(e => `${e.name} ${e.version}`),
       proficiencyLevel: 'Intermediate'
     })
@@ -171,12 +173,6 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
           <span>{title}</span>
         </nav>
 
-        {/* 标签 */}
-        <div className="flex items-center gap-2 mb-4">
-          <DomainBadge domain={article.domain} locale={lang} />
-          <VerificationBadge status={article.verificationStatus} locale={lang} />
-        </div>
-
         {/* 标题 */}
         <h1 className="text-3xl font-bold mb-4">{title}</h1>
 
@@ -184,34 +180,54 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
         <p className="text-lg text-muted-foreground mb-4">{summary}</p>
 
         {/* 元数据 */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>{t(lang, 'article.author')} {article.createdBy}</span>
           <span>{t(lang, 'article.publishedAt')} {formatDateTime(publishedDate)}</span>
           {article.updatedAt !== article.createdAt && (
             <span>{t(lang, 'article.updatedAt')} {formatDateTime(article.updatedAt)}</span>
           )}
+          <DomainBadge domain={article.domain} locale={lang} />
+          <VerificationBadge status={article.verificationStatus} locale={lang} />
         </div>
       </header>
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-8">
         {/* 主内容 */}
         <div className="space-y-8">
-          {/* 元数据面板 */}
-          <section className="rounded-lg border p-4 bg-muted/30">
-            <h2 className="font-semibold mb-4">{t(lang, 'article.articleInfo')}</h2>
-            <dl className="grid grid-cols-2 gap-4 text-sm">
+          {/* 视图切换 Tab */}
+          <ArticleViewTabs
+            htmlContent={htmlContent}
+            markdownContent={markdownContent}
+            jsonContent={jsonContent}
+            locale={lang}
+          />
+        </div>
+
+        {/* 侧边栏 */}
+        <aside className="space-y-6 lg:sticky lg:top-24 self-start">
+          {/* AI 快速上下文卡 */}
+          <div className="rounded-lg border p-4 bg-muted/30">
+            <h3 className="font-semibold mb-4">{t(lang, 'article.articleInfo')}</h3>
+            <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">{t(lang, 'article.articleId')}</dt>
-                <dd className="font-mono mt-1">{article.id}</dd>
+                <dd className="font-mono mt-1 break-all">{article.id}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">{t(lang, 'article.confidenceScore')}</dt>
-                <dd className="mt-1">{article.metadata.confidenceScore}%</dd>
+                <dt className="text-muted-foreground">{t(lang, 'article.author')}</dt>
+                <dd className="mt-1">{article.createdBy}</dd>
               </div>
-              <div>
-                <dt className="text-muted-foreground">{t(lang, 'article.riskLevel')}</dt>
-                <dd className="mt-1">
-                  <RiskBadge risk={article.metadata.riskLevel} locale={lang} />
-                </dd>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <dt className="text-muted-foreground">{t(lang, 'article.confidenceScore')}</dt>
+                  <dd className="mt-1">{article.metadata.confidenceScore}%</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">{t(lang, 'article.riskLevel')}</dt>
+                  <dd className="mt-1">
+                    <RiskBadge risk={article.metadata.riskLevel} locale={lang} />
+                  </dd>
+                </div>
               </div>
               <div>
                 <dt className="text-muted-foreground">{t(lang, 'article.applicableVersions')}</dt>
@@ -223,20 +239,13 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
                   ))}
                 </dd>
               </div>
+              <div>
+                <dt className="text-muted-foreground">{t(lang, 'article.apiAccess')}</dt>
+                <dd className="font-mono mt-1 break-all">/api/v1/search?q={article.slug}</dd>
+              </div>
             </dl>
-          </section>
+          </div>
 
-          {/* 视图切换 Tab */}
-          <ArticleViewTabs
-            htmlContent={htmlContent}
-            markdownContent={markdownContent}
-            jsonContent={jsonContent}
-            locale={lang}
-          />
-        </div>
-
-        {/* 侧边栏 */}
-        <aside className="space-y-6">
           {/* API 引导区 */}
           <div className="rounded-lg border p-4 bg-gradient-to-br from-primary/5 to-blue-500/5">
             <h3 className="font-semibold mb-2">{t(lang, 'article.apiAccess')}</h3>

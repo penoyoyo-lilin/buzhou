@@ -42,6 +42,7 @@ export interface ArticleJsonResponse {
   // 基本信息
   id: string
   slug: string
+  author: string
   title: string
   summary: string
   content: string
@@ -284,6 +285,7 @@ export class RenderService {
     markdown += `---\n\n`
     markdown += `## Metadata\n\n`
     markdown += `- **ID:** ${article.id}\n`
+    markdown += `- **Author:** ${article.createdBy}\n`
     markdown += `- **Domain:** ${article.domain}\n`
     markdown += `- **Tags:** ${article.tags.join(', ')}\n`
     markdown += `- **Keywords:** ${article.keywords.join(', ')}\n`
@@ -370,6 +372,7 @@ export class RenderService {
       // 基本信息
       id: article.id,
       slug: article.slug,
+      author: article.createdBy,
       title,
       summary,
       content,
