@@ -41,6 +41,11 @@ export type VerificationStatus = 'verified' | 'partial' | 'pending' | 'failed' |
  * 风险等级
  */
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type SourceType = 'official' | 'vendor' | 'third_party' | 'community'
+export type InspectionStatus = 'queued' | 'running' | 'completed' | 'partial' | 'failed'
+export type FindingStatus = 'open' | 'applied' | 'manual_required' | 'ignored' | 'rejected'
+export type RepairMode = 'safe_auto' | 'guarded_auto' | 'manual'
+export type RepairStatus = 'queued' | 'applying' | 'applied' | 'failed' | 'manual_required'
 
 /**
  * 验证人类型
@@ -89,6 +94,11 @@ export interface ArticleMetadata {
   confidenceScore: number
   riskLevel: RiskLevel
   runtimeEnv: RuntimeEnv[]
+  lastInspectedAt?: string | null
+  lastRepairedAt?: string | null
+  freshnessScore?: number
+  inspectionStatus?: InspectionStatus
+  staleReason?: string | null
 }
 
 export interface QAPair {
@@ -138,6 +148,77 @@ export interface Article {
   createdAt: string
   updatedAt: string
   publishedAt: string | null
+}
+
+export interface ArticleSource {
+  id: string
+  articleId: string
+  url: string
+  sourceType: SourceType
+  locale: 'zh' | 'en' | 'both' | null
+  priority: number
+  enabled: boolean
+  lastCheckedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InspectionSeveritySummary {
+  low: number
+  medium: number
+  high: number
+  critical: number
+}
+
+export interface InspectionRun {
+  id: string
+  articleId: string
+  triggerSource: string
+  status: InspectionStatus
+  contentHashBefore: string
+  contentHashAfter: string | null
+  severitySummary: InspectionSeveritySummary
+  findingsCount: number
+  autoFixableCount: number
+  startedAt: string | null
+  completedAt: string | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InspectionFinding {
+  id: string
+  runId: string
+  articleId: string
+  ruleKey: string
+  severity: RiskLevel
+  fieldPath: string | null
+  title: string
+  evidence: Record<string, unknown>
+  suggestedPatch: Record<string, unknown> | null
+  autoFixable: boolean
+  status: FindingStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RepairRun {
+  id: string
+  articleId: string
+  inspectionRunId: string | null
+  findingIds: string[]
+  mode: RepairMode
+  status: RepairStatus
+  diff: Record<string, unknown>
+  evidenceSummary: Record<string, unknown>
+  validatorResult: Record<string, unknown>
+  riskBefore: RiskLevel
+  riskAfter: RiskLevel | null
+  appliedAt: string | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 // ============================================

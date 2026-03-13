@@ -11,6 +11,10 @@ export type EventType =
   | 'article:published'
   | 'article:verified'
   | 'article:deprecated'
+  | 'article:inspection-requested'
+  | 'article:inspection-completed'
+  | 'article:repair-applied'
+  | 'article:repair-failed'
   | 'verifier:registered'
   | 'verifier:reputation-changed'
   | 'render:cache-miss'
@@ -36,6 +40,23 @@ type HandlerMap = Map<string, Set<EventHandler>>
 
 class EventBus {
   private handlers: HandlerMap = new Map()
+
+  hasHandlers(eventType: EventType): boolean {
+    return (this.handlers.get(eventType)?.size || 0) > 0
+  }
+
+  private async ensureArticleHandlers(eventType: EventType): Promise<void> {
+    if (!eventType.startsWith('article:') || this.hasHandlers(eventType)) {
+      return
+    }
+
+    try {
+      const { ensureArticleEventHandlersRegistered } = await import('@/core/events/handlers')
+      ensureArticleEventHandlersRegistered()
+    } catch (error) {
+      console.warn('[EventBus] Failed to ensure article handlers are registered:', error)
+    }
+  }
 
   /**
    * 订阅事件
@@ -64,6 +85,8 @@ class EventBus {
       source: string
     }
   ): Promise<void> {
+    await this.ensureArticleHandlers(type)
+
     const event: DomainEvent<T> = {
       id: nanoid(),
       type,
@@ -135,6 +158,41 @@ export interface ArticleUpdatedPayload {
   articleId: string
   updatedBy: string
   changes: string[]
+}
+
+export interface ArticleInspectionRequestedPayload {
+  articleId: string
+  inspectionRunId: string
+  triggerSource: string
+}
+
+export interface ArticleInspectionCompletedPayload {
+  articleId: string
+  inspectionRunId: string
+  status: 'completed' | 'partial' | 'failed'
+  findingsCount: number
+  autoFixableCount: number
+  severitySummary: {
+    low: number
+    medium: number
+    high: number
+    critical: number
+  }
+  lastError: string | null
+}
+
+export interface ArticleRepairAppliedPayload {
+  articleId: string
+  repairRunId: string
+  inspectionRunId: string | null
+  mode: 'safe_auto' | 'guarded_auto' | 'manual'
+}
+
+export interface ArticleRepairFailedPayload {
+  articleId: string
+  repairRunId: string | null
+  inspectionRunId: string | null
+  reason: string
 }
 
 export interface VerifierRegisteredPayload {

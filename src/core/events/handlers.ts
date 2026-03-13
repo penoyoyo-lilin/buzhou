@@ -6,13 +6,38 @@
 import { eventBus } from '@/core/events'
 import { articleService } from '@/services/article.service'
 import { aiService } from '@/services/ai.service'
+import { articleInspectionService } from '@/services/article-inspection.service'
 import prisma from '@/core/db/client'
 
 // ============================================
 // 事件处理器注册
 // ============================================
 
+export function ensureArticleEventHandlersRegistered() {
+  if (eventBus.hasHandlers('article:published')) {
+    return
+  }
+
+  registerArticleEventHandlers()
+}
+
 export function registerArticleEventHandlers() {
+  if (eventBus.hasHandlers('article:published')) {
+    return
+  }
+
+  const materialInspectionFields = new Set([
+    'title',
+    'summary',
+    'content',
+    'tags',
+    'keywords',
+    'codeBlocks',
+    'metadata',
+    'qaPairs',
+    'relatedIds',
+  ])
+
   // 监听文章创建事件
   eventBus.on('article:created', async (event) => {
     const { articleId, needsQAGeneration, needsRelatedGeneration, needsKeywordsGeneration } = event.payload as {
@@ -108,7 +133,6 @@ export function registerArticleEventHandlers() {
   })
 
   // 监听文章发布事件 - 仅记录日志，不再自动生成 AI 内容
-  // AI 内容生成现在通过 Internal API 手动控制
   eventBus.on('article:published', async (event) => {
     const { articleId, publishedAt, publishedBy } = event.payload as {
       articleId: string
@@ -117,7 +141,74 @@ export function registerArticleEventHandlers() {
     }
 
     console.log(`[ArticleEventHandler] Article published: ${articleId} by ${publishedBy} at ${publishedAt}`)
-    console.log(`[ArticleEventHandler] Note: AI content generation (QA, keywords, related) is now manual via Internal API`)
+    await articleInspectionService.enqueueImmediateInspection(articleId, 'event_publish')
+  })
+
+  eventBus.on('article:updated', async (event) => {
+    const { articleId, changes, updatedBy } = event.payload as {
+      articleId: string
+      updatedBy: string
+      changes: string[]
+    }
+
+    if (event.source === 'inspection-repair') {
+      console.log(`[ArticleEventHandler] Skip re-enqueue inspection for repair-originated update ${articleId}`)
+      return
+    }
+
+    const hasMaterialChanges = changes.some((field) => materialInspectionFields.has(field))
+    if (!hasMaterialChanges) {
+      return
+    }
+
+    const article = await articleService.findById(articleId)
+    if (!article || article.status !== 'published') {
+      return
+    }
+
+    console.log(`[ArticleEventHandler] Article updated: ${articleId} by ${updatedBy}, enqueue inspection`)
+    await articleInspectionService.enqueueImmediateInspection(articleId, 'event_update')
+  })
+
+  eventBus.on('article:inspection-requested', async (event) => {
+    const { articleId, inspectionRunId, triggerSource } = event.payload as {
+      articleId: string
+      inspectionRunId: string
+      triggerSource: string
+    }
+
+    console.log(`[ArticleEventHandler] Inspection queued for ${articleId} run=${inspectionRunId} source=${triggerSource}`)
+  })
+
+  eventBus.on('article:inspection-completed', async (event) => {
+    const { articleId, inspectionRunId, status, findingsCount } = event.payload as {
+      articleId: string
+      inspectionRunId: string
+      status: string
+      findingsCount: number
+    }
+
+    console.log(`[ArticleEventHandler] Inspection completed for ${articleId} run=${inspectionRunId} status=${status} findings=${findingsCount}`)
+  })
+
+  eventBus.on('article:repair-applied', async (event) => {
+    const { articleId, repairRunId, mode } = event.payload as {
+      articleId: string
+      repairRunId: string
+      mode: string
+    }
+
+    console.log(`[ArticleEventHandler] Repair applied for ${articleId} repair=${repairRunId} mode=${mode}`)
+  })
+
+  eventBus.on('article:repair-failed', async (event) => {
+    const { articleId, repairRunId, reason } = event.payload as {
+      articleId: string
+      repairRunId: string | null
+      reason: string
+    }
+
+    console.warn(`[ArticleEventHandler] Repair failed for ${articleId} repair=${repairRunId || 'n/a'} reason=${reason}`)
   })
 }
 

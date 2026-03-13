@@ -216,7 +216,7 @@ export class RenderService {
     title: string,
     summary: string
   ): Promise<string> {
-    const contentHtml = await marked.parse(markdown)
+    const contentHtml = await this.renderArticleBodyHtml(markdown)
 
     return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -240,6 +240,11 @@ export class RenderService {
   </article>
 </body>
 </html>`
+  }
+
+  async renderArticleBodyHtml(markdown: string): Promise<string> {
+    const preparedMarkdown = this.prepareMarkdownForHtml(markdown)
+    return await marked.parse(preparedMarkdown)
   }
 
   // ============================================
@@ -429,6 +434,42 @@ export class RenderService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;')
+  }
+
+  private prepareMarkdownForHtml(markdown: string): string {
+    const placeholders: string[] = []
+    const protectedMarkdown = markdown.replace(
+      /```[\s\S]*?```|`[^`\n]+`|!?\[[^\]]+\]\([^)]+\)/g,
+      (segment) => {
+        const index = placeholders.push(segment) - 1
+        return `__BUZHOU_MD_PLACEHOLDER_${index}__`
+      }
+    )
+
+    const linkedMarkdown = protectedMarkdown.replace(/https?:\/\/[^\s<]+/g, (rawUrl) => {
+      let url = rawUrl
+      let trailing = ''
+
+      while (/[),.!?;:]/.test(url.slice(-1))) {
+        const lastChar = url.slice(-1)
+        if (lastChar === ')') {
+          const openCount = (url.match(/\(/g) || []).length
+          const closeCount = (url.match(/\)/g) || []).length
+          if (closeCount <= openCount) {
+            break
+          }
+        }
+
+        trailing = lastChar + trailing
+        url = url.slice(0, -1)
+      }
+
+      return `[${url}](${url})${trailing}`
+    })
+
+    return linkedMarkdown.replace(/__BUZHOU_MD_PLACEHOLDER_(\d+)__/g, (_, index) => {
+      return placeholders[Number(index)] || ''
+    })
   }
 }
 

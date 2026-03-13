@@ -78,3 +78,10 @@ docs/task-plans/geo-optimization-20260312.md
 prisma/data/buzhou.db
 AGENTS.md
 prisma/prisma/data/buzhou.db
+tests/integration/api/article-inspection.routes.test.ts
+tests/unit/admin-article-generate-related.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts

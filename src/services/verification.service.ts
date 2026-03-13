@@ -188,11 +188,14 @@ export class VerificationService {
 
     const passed = results.filter(r => r === 'passed').length
     const failed = results.filter(r => r === 'failed').length
+    const partial = results.filter(r => r === 'partial').length
     const total = results.length
 
     if (passed === total) return 'verified'
     if (failed === total) return 'failed'
+    if (partial === total) return 'partial'
     if (failed > 0) return 'partial'
+    if (partial > 0) return 'partial'
     if (passed > 0) return 'partial'
 
     return 'pending'

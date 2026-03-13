@@ -3,6 +3,8 @@ import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { toJsonValue, fromJsonValue } from '@/core/db/utils'
 import { ensureArticleDomainEnumValue, isArticleDomainEnumValueError } from '@/core/db/article-domain'
+import { deleteCachePattern, CacheKeys } from '@/core/cache'
+import { eventBus } from '@/core/events'
 
 const ARTICLE_DOMAINS = [
   'agent',
@@ -166,15 +168,19 @@ export async function PUT(
 
     // 构建更新数据（兼容 SQLite 和 PostgreSQL）
     const updateData: Record<string, unknown> = {}
+    const changes: string[] = []
 
     if (body.title) {
       updateData.title = toJsonValue(body.title)
+      changes.push('title')
     }
     if (body.summary) {
       updateData.summary = toJsonValue(body.summary)
+      changes.push('summary')
     }
     if (body.content) {
       updateData.content = toJsonValue(body.content)
+      changes.push('content')
     }
     if (body.domain) {
       const normalizedDomain = normalizeDomain(body.domain)
@@ -189,27 +195,39 @@ export async function PUT(
         )
       }
       updateData.domain = normalizedDomain
+      changes.push('domain')
     }
     if (body.tags !== undefined) {
       updateData.tags = toJsonValue(body.tags)
+      changes.push('tags')
     }
     if (body.codeBlocks !== undefined) {
       updateData.codeBlocks = toJsonValue(body.codeBlocks)
+      changes.push('codeBlocks')
     }
     if (body.metadata !== undefined) {
       updateData.metadata = toJsonValue(body.metadata)
+      changes.push('metadata')
     }
     if (body.qaPairs !== undefined) {
       updateData.qaPairs = toJsonValue(body.qaPairs)
+      changes.push('qaPairs')
     }
     if (body.relatedIds !== undefined) {
       updateData.relatedIds = toJsonValue(body.relatedIds)
+      changes.push('relatedIds')
     }
+    const isPublishTransition = body.status === 'published' && existing.status !== 'published'
     if (body.status) {
       updateData.status = body.status
+      changes.push('status')
+      if (isPublishTransition) {
+        updateData.publishedAt = new Date()
+      }
     }
     if (typeof body.author === 'string' && body.author.trim()) {
       updateData.createdBy = body.author.trim()
+      changes.push('author')
     }
 
     let article: Record<string, unknown> | null = null
@@ -256,6 +274,49 @@ export async function PUT(
       if (!article) {
         throw updateError
       }
+    }
+
+    await Promise.all([
+      deleteCachePattern(CacheKeys.article(id)),
+      deleteCachePattern(CacheKeys.articleSlug(existing.slug)),
+      deleteCachePattern(`render:*:${id}:*`),
+    ])
+
+    if (isPublishTransition) {
+      const publishedAtValue =
+        article && article.publishedAt instanceof Date
+          ? article.publishedAt
+          : updateData.publishedAt instanceof Date
+            ? updateData.publishedAt
+            : new Date()
+
+      await eventBus.emit(
+        'article:published',
+        {
+          articleId: id,
+          publishedAt: publishedAtValue.toISOString(),
+          publishedBy: 'admin',
+        },
+        {
+          aggregateId: id,
+          aggregateType: 'Article',
+          source: 'admin-panel',
+        }
+      )
+    } else if (changes.length > 0) {
+      await eventBus.emit(
+        'article:updated',
+        {
+          articleId: id,
+          updatedBy: 'admin',
+          changes,
+        },
+        {
+          aggregateId: id,
+          aggregateType: 'Article',
+          source: 'admin-panel',
+        }
+      )
     }
 
     return NextResponse.json(successResponse(article))

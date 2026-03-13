@@ -81,3 +81,5 @@
 31. `AGENTS.md` 仅保留长期协作规则，不记录任务拆解、范围、依赖、验收标准等方案性内容；这类内容可以考虑写入独立的任务方案文档（如 `docs/task-plans/*.md`）。
 32. **domain 兼容归一化需覆盖全部 legacy 值**：处理 `error-codes -> error_codes` 时，必须同步覆盖 `tools-filesystem/tools-postgres/tools-github` 等同类 legacy domain，且在 internal/admin 写接口入库前统一转换为下划线格式。
 33. **所有代码改动需先在开发环境验证**：提交或部署前，必须在本地开发环境（`npm --prefix /Users/lilin/project/buzhou run dev:clean`）完成接口/页面实测验证，并记录关键请求与返回结果。
+34. **早期自动化能力优先最小闭环**：像巡检、调度、修复这类后台自动化功能在早期阶段默认先采用最小可运行方案，避免一开始引入多层频率、复杂评分和过度编排；只有在实际容量或成本压力出现后再升级策略复杂度。
+35. **巡检触发必须覆盖所有写入口**：发布/更新类能力不能只验证管理后台页面链路，必须同时检查 admin API、internal API 以及任何直写数据库的写接口；若未统一走 service，则必须显式补齐 `eventBus.emit()`、缓存失效和 `publishedAt` 等副作用。

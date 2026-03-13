@@ -13,6 +13,7 @@ import {
   LogOut,
   Link2,
   Key,
+  ScanSearch,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ const menuItems = [
   { href: '/admin/articles', label: '文章管理', icon: FileText },
   { href: '/admin/verifiers', label: '验证人管理', icon: Users },
   { href: '/admin/agents', label: 'Agent 管理', icon: Bot },
+  { href: '/admin/inspections', label: '巡检中心', icon: ScanSearch },
   { href: '/admin/footer-links', label: '底部导航', icon: Link2 },
   { href: '/admin/stats', label: '访问统计', icon: BarChart3 },
   { href: '/admin/internal-key', label: '内部密钥', icon: Key },

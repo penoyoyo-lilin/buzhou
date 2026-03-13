@@ -98,6 +98,10 @@ model Article {
   deprecatedReason  String?   @map("deprecated_reason")
 
   verificationRecords VerificationRecord[]
+  articleSources      ArticleSource[]
+  inspectionFindings  InspectionFinding[]
+  inspectionRuns      InspectionRun[]
+  repairRuns          RepairRun[]
 
   @@index([slug])
   @@index([domain])
@@ -106,6 +110,102 @@ model Article {
   @@index([priority])
   @@index([createdAt])
   @@map("articles")
+}
+
+model ArticleSource {
+  id            String    @id @default(cuid())
+  articleId     String    @map("article_id")
+  article       Article   @relation(fields: [articleId], references: [id])
+  url           String
+  sourceType    String    @map("source_type") // official, vendor, third_party, community
+  locale        String?   // zh, en, both
+  priority      Int       @default(0)
+  enabled       Boolean   @default(true)
+  lastCheckedAt DateTime? @map("last_checked_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([articleId])
+  @@index([sourceType])
+  @@index([enabled])
+  @@map("article_sources")
+}
+
+model InspectionRun {
+  id                String              @id @default(cuid())
+  articleId         String              @map("article_id")
+  article           Article             @relation(fields: [articleId], references: [id])
+  triggerSource     String              @map("trigger_source") // event_publish, event_update, daily_incremental, manual_retry
+  status            String              @default("queued") // queued, running, completed, partial, failed
+  contentHashBefore String              @map("content_hash_before")
+  contentHashAfter  String?             @map("content_hash_after")
+  severitySummary   String              @default("{}") @map("severity_summary") // JSON string
+  findingsCount     Int                 @default(0) @map("findings_count")
+  autoFixableCount  Int                 @default(0) @map("auto_fixable_count")
+  startedAt         DateTime?           @map("started_at")
+  completedAt       DateTime?           @map("completed_at")
+  lastError         String?             @map("last_error")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  findings          InspectionFinding[]
+  repairRuns        RepairRun[]
+
+  @@index([articleId])
+  @@index([status])
+  @@index([triggerSource])
+  @@index([createdAt])
+  @@map("inspection_runs")
+}
+
+model InspectionFinding {
+  id             String        @id @default(cuid())
+  runId          String        @map("run_id")
+  run            InspectionRun @relation(fields: [runId], references: [id])
+  articleId      String        @map("article_id")
+  article        Article       @relation(fields: [articleId], references: [id])
+  ruleKey        String        @map("rule_key")
+  severity       String        // low, medium, high, critical
+  fieldPath      String?       @map("field_path")
+  title          String
+  evidence       String        // JSON string
+  suggestedPatch String?       @map("suggested_patch") // JSON string
+  autoFixable    Boolean       @default(false) @map("auto_fixable")
+  status         String        @default("open") // open, applied, manual_required, ignored, rejected
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([runId])
+  @@index([articleId])
+  @@index([severity])
+  @@index([status])
+  @@map("inspection_findings")
+}
+
+model RepairRun {
+  id              String         @id @default(cuid())
+  articleId       String         @map("article_id")
+  article         Article        @relation(fields: [articleId], references: [id])
+  inspectionRunId String?        @map("inspection_run_id")
+  inspectionRun   InspectionRun? @relation(fields: [inspectionRunId], references: [id])
+  findingIds      String         @default("[]") @map("finding_ids") // JSON string
+  mode            String         @default("safe_auto") // safe_auto, guarded_auto, manual
+  status          String         @default("queued") // queued, applying, applied, failed, manual_required
+  diff            String         @default("{}") // JSON string
+  evidenceSummary String         @default("{}") @map("evidence_summary") // JSON string
+  validatorResult String         @default("{}") @map("validator_result") // JSON string
+  riskBefore      String         @map("risk_before")
+  riskAfter       String?        @map("risk_after")
+  appliedAt       DateTime?      @map("applied_at")
+  lastError       String?        @map("last_error")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([articleId])
+  @@index([inspectionRunId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("repair_runs")
 }
 
 model VerificationRecord {

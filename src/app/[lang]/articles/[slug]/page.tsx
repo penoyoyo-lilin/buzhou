@@ -143,6 +143,7 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
   const content = lang === 'zh' ? article.content.zh : article.content.en
 
   // 生成 Markdown 和 JSON 内容
+  const contentHtml = await renderService.renderArticleBodyHtml(content)
   const markdownContent = renderService.toMarkdown(article, lang)
   const jsonContent = renderService.toJsonResponse(article, lang)
 
@@ -204,8 +205,8 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
   const htmlContent = (
     <div className="space-y-8">
       {/* 正文内容 */}
-      <section className="prose prose-neutral dark:prose-invert max-w-none">
-        <div className="whitespace-pre-wrap">{content}</div>
+      <section className="prose prose-neutral dark:prose-invert max-w-none [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_a]:decoration-primary/60 [&_a]:break-all [&_a:hover]:text-primary/80 [&_a:hover]:decoration-primary">
+        <div dangerouslySetInnerHTML={{ __html: contentHtml }} />
       </section>
 
       {/* 代码块 */}
@@ -246,7 +247,9 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
                       ▼
                     </span>
                   </summary>
-                  <p className="mt-4 text-muted-foreground">{answer}</p>
+                  <p className="mt-4 text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_a]:decoration-primary/60 [&_a]:break-all [&_a:hover]:text-primary/80 [&_a:hover]:decoration-primary">
+                    {answer}
+                  </p>
                 </details>
               )
             })}
@@ -299,6 +302,12 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
         {/* 摘要 */}
         <p className="text-lg text-muted-foreground mb-4">{summary}</p>
 
+        {article.verificationStatus === 'partial' && article.metadata.lastInspectedAt && (
+          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
+            {t(lang, 'article.autoUpdatePendingReview')}
+          </div>
+        )}
+
         {/* 元数据 */}
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>{t(lang, 'article.author')} {article.createdBy}</span>
@@ -349,6 +358,12 @@ export default async function ArticlePage({ params, searchParams }: ArticlePageP
                   </dd>
                 </div>
               </div>
+              {article.metadata.lastInspectedAt && (
+                <div>
+                  <dt className="text-muted-foreground">{t(lang, 'article.lastInspectedAt')}</dt>
+                  <dd className="mt-1">{formatDateTime(article.metadata.lastInspectedAt)}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-muted-foreground">{t(lang, 'article.applicableVersions')}</dt>
                 <dd className="mt-1 flex flex-wrap gap-1">

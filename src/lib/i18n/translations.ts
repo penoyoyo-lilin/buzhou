@@ -60,6 +60,8 @@ type TranslationDict = {
     author: string
     confidenceScore: string
     riskLevel: string
+    lastInspectedAt: string
+    autoUpdatePendingReview: string
     applicableVersions: string
     verificationRecords: string
     tags: string
@@ -233,6 +235,8 @@ export const translations: Record<Locale, TranslationDict> = {
       author: '作者',
       confidenceScore: '置信分数',
       riskLevel: '风险等级',
+      lastInspectedAt: '最近巡检',
+      autoUpdatePendingReview: '本文已进行自动巡检/修复，当前仍处于待进一步验证状态。',
       applicableVersions: '适用版本',
       verificationRecords: '验证记录',
       tags: '标签',
@@ -410,6 +414,8 @@ export const translations: Record<Locale, TranslationDict> = {
       author: 'Author',
       confidenceScore: 'Confidence Score',
       riskLevel: 'Risk Level',
+      lastInspectedAt: 'Last Inspected',
+      autoUpdatePendingReview: 'This article has automated inspection or repair updates and is still pending additional verification.',
       applicableVersions: 'Applicable Versions',
       verificationRecords: 'Verification Records',
       tags: 'Tags',

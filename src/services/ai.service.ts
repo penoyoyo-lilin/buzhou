@@ -84,9 +84,11 @@ export class AIService {
     article: Article,
     allArticles: Pick<Article, 'id' | 'title' | 'summary' | 'tags' | 'domain'>[]
   ): Promise<RelatedGenerationResult> {
+    const fallbackRelatedIds = this.selectFallbackRelatedIds(article, allArticles)
+
     if (!this.apiUrl || !this.apiKey) {
-      console.warn('AI API not configured, returning empty related IDs')
-      return { relatedIds: [] }
+      console.warn('AI API not configured, falling back to deterministic related IDs')
+      return { relatedIds: fallbackRelatedIds }
     }
 
     if (allArticles.length === 0) {
@@ -97,10 +99,15 @@ export class AIService {
       const prompt = this.buildRelatedPrompt(article, allArticles)
       const response = await this.callAI(prompt)
       const relatedIds = this.parseRelatedResponse(response, allArticles)
-      return { relatedIds }
+      if (relatedIds.length > 0) {
+        return { relatedIds }
+      }
+
+      console.warn('AI related article response was empty, falling back to deterministic related IDs')
+      return { relatedIds: fallbackRelatedIds }
     } catch (error) {
       console.error('Failed to generate related articles:', error)
-      return { relatedIds: [] }
+      return { relatedIds: fallbackRelatedIds }
     }
   }
 
@@ -307,6 +314,89 @@ Consider:
     } catch {
       return []
     }
+  }
+
+  private selectFallbackRelatedIds(
+    article: Article,
+    allArticles: Pick<Article, 'id' | 'title' | 'summary' | 'tags' | 'domain'>[]
+  ): string[] {
+    const articleTagSet = new Set(article.tags.map((tag) => this.normalizeToken(tag)))
+    const articleTitleTokens = this.extractTokens([article.title.zh, article.title.en])
+    const articleSummaryTokens = this.extractTokens([article.summary.zh, article.summary.en])
+
+    return allArticles
+      .filter((candidate) => candidate.id !== article.id)
+      .map((candidate) => {
+        const candidateTagSet = new Set(candidate.tags.map((tag) => this.normalizeToken(tag)))
+        const candidateTitleTokens = this.extractTokens([candidate.title.zh, candidate.title.en])
+        const candidateSummaryTokens = this.extractTokens([candidate.summary.zh, candidate.summary.en])
+
+        const tagOverlap = this.countOverlap(articleTagSet, candidateTagSet)
+        const titleOverlap = this.countOverlap(articleTitleTokens, candidateTitleTokens)
+        const summaryOverlap = this.countOverlap(articleSummaryTokens, candidateSummaryTokens)
+        const sameDomain = candidate.domain === article.domain
+
+        const score =
+          (sameDomain ? 50 : 0) +
+          tagOverlap * 15 +
+          titleOverlap * 4 +
+          summaryOverlap * 2
+
+        return {
+          id: candidate.id,
+          score,
+          sameDomain,
+          tagOverlap,
+          titleOverlap,
+          summaryOverlap,
+        }
+      })
+      .filter((candidate) => candidate.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        if (b.tagOverlap !== a.tagOverlap) return b.tagOverlap - a.tagOverlap
+        if (b.titleOverlap !== a.titleOverlap) return b.titleOverlap - a.titleOverlap
+        if (b.summaryOverlap !== a.summaryOverlap) return b.summaryOverlap - a.summaryOverlap
+        if (a.sameDomain !== b.sameDomain) return a.sameDomain ? -1 : 1
+        return a.id.localeCompare(b.id)
+      })
+      .slice(0, 5)
+      .map((candidate) => candidate.id)
+  }
+
+  private extractTokens(values: string[]): Set<string> {
+    const tokens = new Set<string>()
+
+    for (const value of values) {
+      const matches = value.toLowerCase().match(/[\p{L}\p{N}_]+/gu) || []
+      for (const match of matches) {
+        const normalized = this.normalizeToken(match)
+        if (!normalized) continue
+
+        const hasCjk = /[\u3400-\u9fff]/.test(normalized)
+        if (hasCjk || normalized.length >= 2) {
+          tokens.add(normalized)
+        }
+      }
+    }
+
+    return tokens
+  }
+
+  private normalizeToken(value: string): string {
+    return value.trim().toLowerCase()
+  }
+
+  private countOverlap(source: Set<string>, target: Set<string>): number {
+    let count = 0
+
+    for (const value of source) {
+      if (target.has(value)) {
+        count += 1
+      }
+    }
+
+    return count
   }
 }
 
