@@ -47,7 +47,7 @@ function normalizeDomain(input: unknown): string {
 function isDuplicateSlugError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const code = (error as { code?: string }).code
-  if (code === 'P2002') {
+  if (code === 'P2002' || code === '23505') {
     const metaTarget = (error as { meta?: { target?: unknown } }).meta?.target
     if (Array.isArray(metaTarget) && metaTarget.some((item) => String(item).includes('slug'))) {
       return true
@@ -55,7 +55,11 @@ function isDuplicateSlugError(error: unknown): boolean {
   }
 
   const message = error instanceof Error ? error.message : String(error)
-  return /unique constraint failed/i.test(message) && /slug/i.test(message)
+  return (
+    (/unique constraint failed/i.test(message) && /slug/i.test(message)) ||
+    (/duplicate key value violates unique constraint/i.test(message) &&
+      (/slug/i.test(message) || /articles_slug_key/i.test(message)))
+  )
 }
 
 function isPostgreSQLRuntime(): boolean {
@@ -75,7 +79,8 @@ function isSchemaDriftError(error: unknown): boolean {
     /column .+ does not exist/i.test(message) ||
     /table .+ does not exist/i.test(message) ||
     /check constraint/i.test(message) ||
-    /invalid input value for enum/i.test(message)
+    /invalid input value for enum/i.test(message) ||
+    /null value in column .+ violates not-null constraint/i.test(message)
   )
 }
 
@@ -121,77 +126,111 @@ async function createArticleWithSqlFallback(
   const id = `art_${nanoid(12)}`
   const slug = data.slug || generateFallbackSlug(data.title.en)
 
-  const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
-    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'articles'`
-  )
-  const columnSet = new Set(columns.map((item) => item.column_name))
-  const has = (name: string) => columnSet.has(name)
+  let columnSet: Set<string> | null = null
+  try {
+    const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'articles'`
+    )
+    columnSet = new Set(columns.map((item) => item.column_name))
+  } catch {
+    columnSet = null
+  }
+
+  const resolveColumn = (...candidates: string[]): string | null => {
+    if (!columnSet) return candidates[0] || null
+    for (const candidate of candidates) {
+      if (columnSet.has(candidate)) return candidate
+    }
+    return null
+  }
 
   const now = new Date()
   const status = data.status || 'draft'
-  const commonFields: Array<{ column: string; value: unknown }> = [
-    { column: 'id', value: id },
-    { column: 'slug', value: slug },
-    { column: 'title', value: JSON.stringify(data.title) },
-    { column: 'summary', value: JSON.stringify(data.summary) },
-    { column: 'content', value: JSON.stringify(data.content) },
-    { column: 'created_by', value: author },
-    { column: 'tags', value: JSON.stringify(data.tags || []) },
-    { column: 'keywords', value: JSON.stringify([]) },
-    { column: 'code_blocks', value: JSON.stringify([]) },
-    { column: 'metadata', value: JSON.stringify({
+  const domainColumn = resolveColumn('domain')
+  if (!domainColumn) {
+    throw new Error('articles.domain column missing in database')
+  }
+
+  const baseRequiredFields: Array<{ column: string | null; value: unknown }> = [
+    { column: resolveColumn('id'), value: id },
+    { column: resolveColumn('slug'), value: slug },
+    { column: resolveColumn('title'), value: JSON.stringify(data.title) },
+    { column: resolveColumn('summary'), value: JSON.stringify(data.summary) },
+    { column: resolveColumn('content'), value: JSON.stringify(data.content) },
+    { column: resolveColumn('created_by', 'createdBy'), value: author },
+  ]
+
+  const extendedFields: Array<{ column: string | null; value: unknown }> = [
+    { column: resolveColumn('tags'), value: JSON.stringify(data.tags || []) },
+    { column: resolveColumn('keywords'), value: JSON.stringify([]) },
+    { column: resolveColumn('code_blocks', 'codeBlocks'), value: JSON.stringify([]) },
+    { column: resolveColumn('metadata'), value: JSON.stringify({
       applicableVersions: [],
       confidenceScore: 0,
       riskLevel: 'low',
       runtimeEnv: [],
     }) },
-    { column: 'qa_pairs', value: JSON.stringify([]) },
-    { column: 'related_ids', value: JSON.stringify([]) },
-    { column: 'priority', value: data.priority || 'P1' },
-    { column: 'verification_status', value: 'pending' },
-    { column: 'status', value: status },
-    { column: 'created_at', value: now },
-    { column: 'updated_at', value: now },
+    { column: resolveColumn('qa_pairs', 'qaPairs'), value: JSON.stringify([]) },
+    { column: resolveColumn('related_ids', 'relatedIds'), value: JSON.stringify([]) },
+    { column: resolveColumn('priority'), value: data.priority || 'P1' },
+    { column: resolveColumn('verification_status', 'verificationStatus'), value: 'pending' },
+    { column: resolveColumn('status'), value: status },
+    { column: resolveColumn('created_at', 'createdAt'), value: now },
+    { column: resolveColumn('updated_at', 'updatedAt'), value: now },
   ]
 
   if (status === 'published') {
-    commonFields.push({ column: 'published_at', value: now })
+    extendedFields.push({ column: resolveColumn('published_at', 'publishedAt'), value: now })
   }
 
-  const filteredFields = commonFields.filter((field) => has(field.column))
-  if (!has('domain')) {
-    throw new Error('articles.domain column missing in database')
-  }
-
-  const baseColumns = filteredFields.map((field) => `"${field.column}"`)
-  const baseValues = filteredFields.map((field) => field.value)
+  const templateFieldGroups = [
+    [...baseRequiredFields, ...extendedFields],
+    [
+      ...baseRequiredFields,
+      { column: resolveColumn('tags'), value: JSON.stringify(data.tags || []) },
+      { column: resolveColumn('priority'), value: data.priority || 'P1' },
+      { column: resolveColumn('verification_status', 'verificationStatus'), value: 'pending' },
+      { column: resolveColumn('status'), value: status },
+      { column: resolveColumn('created_at', 'createdAt'), value: now },
+      { column: resolveColumn('updated_at', 'updatedAt'), value: now },
+    ],
+    [
+      ...baseRequiredFields,
+      { column: resolveColumn('status'), value: status },
+      { column: resolveColumn('created_at', 'createdAt'), value: now },
+      { column: resolveColumn('updated_at', 'updatedAt'), value: now },
+    ],
+  ]
 
   for (const domainCandidate of getDomainCandidates(data.domain)) {
-    const columnsWithDomain = [...baseColumns, `"domain"`]
-    const valuesWithDomain = [...baseValues, domainCandidate]
-    const placeholders = valuesWithDomain.map((_, index) => `$${index + 1}`).join(', ')
+    for (const fields of templateFieldGroups) {
+      const filteredFields = fields.filter((field): field is { column: string; value: unknown } => Boolean(field.column))
+      const columnsWithDomain = filteredFields.map((field) => `"${field.column}"`).concat(`"${domainColumn}"`)
+      const valuesWithDomain = filteredFields.map((field) => field.value).concat(domainCandidate)
+      const placeholders = valuesWithDomain.map((_, index) => `$${index + 1}`).join(', ')
 
-    try {
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "articles" (${columnsWithDomain.join(', ')}) VALUES (${placeholders})`,
-        ...valuesWithDomain
-      )
+      try {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO "articles" (${columnsWithDomain.join(', ')}) VALUES (${placeholders})`,
+          ...valuesWithDomain
+        )
 
-      return {
-        id,
-        slug,
-        domain: data.domain,
-        status,
-        createdBy: author,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      }
-    } catch (error) {
-      if (isDuplicateSlugError(error)) {
-        throw error
-      }
-      if (!isSchemaDriftError(error)) {
-        throw error
+        return {
+          id,
+          slug,
+          domain: data.domain,
+          status,
+          createdBy: author,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        }
+      } catch (error) {
+        if (isDuplicateSlugError(error)) {
+          throw error
+        }
+        if (!isSchemaDriftError(error)) {
+          throw error
+        }
       }
     }
   }
