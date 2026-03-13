@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client'
 import { articleService, CreateArticleData } from '@/services/article.service'
 import { verificationService, CreateVerificationData } from '@/services/verification.service'
 import { eventBus } from '@/core/events'
+import { nanoid } from 'nanoid'
 import { z } from 'zod'
 
 const CREATE_ARTICLE_DOMAINS = [
@@ -30,6 +31,13 @@ const LEGACY_DOMAIN_ALIASES: Record<string, typeof CREATE_ARTICLE_DOMAINS[number
   'error-codes': 'error_codes',
 }
 
+const DOMAIN_LEGACY_VALUES: Record<string, string> = {
+  tools_filesystem: 'tools-filesystem',
+  tools_postgres: 'tools-postgres',
+  tools_github: 'tools-github',
+  error_codes: 'error-codes',
+}
+
 function normalizeDomain(input: unknown): string {
   if (typeof input !== 'string') return ''
   const normalized = input.trim().toLowerCase()
@@ -48,6 +56,147 @@ function isDuplicateSlugError(error: unknown): boolean {
 
   const message = error instanceof Error ? error.message : String(error)
   return /unique constraint failed/i.test(message) && /slug/i.test(message)
+}
+
+function isPostgreSQLRuntime(): boolean {
+  const url = process.env.DATABASE_URL || ''
+  return url.includes('postgresql://') || url.includes('postgres://')
+}
+
+function isSchemaDriftError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: string }).code
+  if (code === 'P2021' || code === 'P2022' || code === 'P2004' || code === 'P2010' || code === 'P2000') {
+    return true
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    /column .+ does not exist/i.test(message) ||
+    /table .+ does not exist/i.test(message) ||
+    /check constraint/i.test(message) ||
+    /invalid input value for enum/i.test(message)
+  )
+}
+
+function generateFallbackSlug(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 100)
+  return slug || `article-${Date.now()}`
+}
+
+function getDomainCandidates(domain: string): string[] {
+  const legacy = DOMAIN_LEGACY_VALUES[domain]
+  return [domain, legacy].filter((value): value is string => Boolean(value))
+}
+
+interface SqlFallbackCreateResult {
+  id: string
+  slug: string
+  domain: string
+  status: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface SqlFallbackCreateInput {
+  slug?: string
+  title: { zh: string; en: string }
+  summary: { zh: string; en: string }
+  content: { zh: string; en: string }
+  domain: string
+  priority?: 'P0' | 'P1'
+  status?: 'draft' | 'published' | 'archived'
+  tags?: string[]
+}
+
+async function createArticleWithSqlFallback(
+  data: SqlFallbackCreateInput,
+  author: string
+): Promise<SqlFallbackCreateResult> {
+  const id = `art_${nanoid(12)}`
+  const slug = data.slug || generateFallbackSlug(data.title.en)
+
+  const columns = await prisma.$queryRawUnsafe<Array<{ column_name: string }>>(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'articles'`
+  )
+  const columnSet = new Set(columns.map((item) => item.column_name))
+  const has = (name: string) => columnSet.has(name)
+
+  const now = new Date()
+  const status = data.status || 'draft'
+  const commonFields: Array<{ column: string; value: unknown }> = [
+    { column: 'id', value: id },
+    { column: 'slug', value: slug },
+    { column: 'title', value: JSON.stringify(data.title) },
+    { column: 'summary', value: JSON.stringify(data.summary) },
+    { column: 'content', value: JSON.stringify(data.content) },
+    { column: 'created_by', value: author },
+    { column: 'tags', value: JSON.stringify(data.tags || []) },
+    { column: 'keywords', value: JSON.stringify([]) },
+    { column: 'code_blocks', value: JSON.stringify([]) },
+    { column: 'metadata', value: JSON.stringify({
+      applicableVersions: [],
+      confidenceScore: 0,
+      riskLevel: 'low',
+      runtimeEnv: [],
+    }) },
+    { column: 'qa_pairs', value: JSON.stringify([]) },
+    { column: 'related_ids', value: JSON.stringify([]) },
+    { column: 'priority', value: data.priority || 'P1' },
+    { column: 'verification_status', value: 'pending' },
+    { column: 'status', value: status },
+    { column: 'created_at', value: now },
+    { column: 'updated_at', value: now },
+  ]
+
+  if (status === 'published') {
+    commonFields.push({ column: 'published_at', value: now })
+  }
+
+  const filteredFields = commonFields.filter((field) => has(field.column))
+  if (!has('domain')) {
+    throw new Error('articles.domain column missing in database')
+  }
+
+  const baseColumns = filteredFields.map((field) => `"${field.column}"`)
+  const baseValues = filteredFields.map((field) => field.value)
+
+  for (const domainCandidate of getDomainCandidates(data.domain)) {
+    const columnsWithDomain = [...baseColumns, `"domain"`]
+    const valuesWithDomain = [...baseValues, domainCandidate]
+    const placeholders = valuesWithDomain.map((_, index) => `$${index + 1}`).join(', ')
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "articles" (${columnsWithDomain.join(', ')}) VALUES (${placeholders})`,
+        ...valuesWithDomain
+      )
+
+      return {
+        id,
+        slug,
+        domain: data.domain,
+        status,
+        createdBy: author,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      }
+    } catch (error) {
+      if (isDuplicateSlugError(error)) {
+        throw error
+      }
+      if (!isSchemaDriftError(error)) {
+        throw error
+      }
+    }
+  }
+
+  throw new Error('Failed to create article with schema fallback')
 }
 
 // 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
@@ -223,16 +372,33 @@ export async function POST(request: NextRequest) {
     const data = validated.data
     const author = data.author?.trim() || 'admin'
 
-    // 创建文章
-    const article = await articleService.create({
-      slug: data.slug,
-      title: data.title,
-      summary: data.summary,
-      content: data.content,
-      domain: data.domain,
-      tags: data.tags,
-      createdBy: author,
-    } as CreateArticleData)
+    let article: Awaited<ReturnType<typeof articleService.create>> | SqlFallbackCreateResult
+    let usedSqlFallback = false
+    try {
+      article = await articleService.create({
+        slug: data.slug,
+        title: data.title,
+        summary: data.summary,
+        content: data.content,
+        domain: data.domain,
+        tags: data.tags,
+        createdBy: author,
+      } as CreateArticleData)
+    } catch (createError) {
+      if (isDuplicateSlugError(createError)) {
+        return NextResponse.json(
+          errorResponse(ErrorCodes.ALREADY_EXISTS, 'Slug 已存在，请更换后重试'),
+          { status: 409 }
+        )
+      }
+
+      if (isPostgreSQLRuntime() && isSchemaDriftError(createError)) {
+        article = await createArticleWithSqlFallback(data, author)
+        usedSqlFallback = true
+      } else {
+        throw createError
+      }
+    }
 
     // 如果有验证记录，创建验证记录
     if (data.verificationRecords && data.verificationRecords.length > 0) {
@@ -248,7 +414,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 如果状态为发布，更新状态
-    if (data.status === 'published') {
+    if (!usedSqlFallback && data.status === 'published') {
       await articleService.publish(article.id, 'admin')
     }
 
@@ -273,13 +439,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(successResponse(article))
   } catch (error) {
-    if (isDuplicateSlugError(error)) {
-      return NextResponse.json(
-        errorResponse(ErrorCodes.ALREADY_EXISTS, 'Slug 已存在，请更换后重试'),
-        { status: 409 }
-      )
-    }
-
     console.error('Create article error:', error)
     return NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '创建文章失败'),
