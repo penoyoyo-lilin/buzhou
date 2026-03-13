@@ -407,7 +407,7 @@ export async function POST(request: NextRequest) {
     const data = validated.data
     const author = data.author?.trim() || 'admin'
 
-    let article: Awaited<ReturnType<typeof articleService.create>> | SqlFallbackCreateResult
+    let article: Awaited<ReturnType<typeof articleService.create>> | SqlFallbackCreateResult | null = null
     let usedSqlFallback = false
     try {
       article = await articleService.create({
@@ -422,7 +422,7 @@ export async function POST(request: NextRequest) {
     } catch (rawCreateError) {
       let createError: unknown = rawCreateError
       let repairedCreateSucceeded = false
-
+    
       if (isArticleDomainEnumValueError(createError, data.domain)) {
         const repaired = await ensureArticleDomainEnumValue(data.domain)
         if (repaired) {
@@ -442,7 +442,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-
+    
       if (!repairedCreateSucceeded) {
         if (isDuplicateSlugError(createError)) {
           return NextResponse.json(
@@ -450,7 +450,7 @@ export async function POST(request: NextRequest) {
             { status: 409 }
           )
         }
-
+    
         if (isSchemaDriftError(createError)) {
           article = await createArticleWithSqlFallback(data, author)
           usedSqlFallback = true
@@ -459,7 +459,12 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-
+    
+    // 确保 article 已被赋值
+    if (!article) {
+      throw new Error('Failed to create article')
+    }
+    
     // 如果有验证记录，创建验证记录
     if (data.verificationRecords && data.verificationRecords.length > 0) {
       for (const record of data.verificationRecords) {
