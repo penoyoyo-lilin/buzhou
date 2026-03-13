@@ -11,6 +11,45 @@ import { verificationService, CreateVerificationData } from '@/services/verifica
 import { eventBus } from '@/core/events'
 import { z } from 'zod'
 
+const CREATE_ARTICLE_DOMAINS = [
+  'mcp',
+  'skill',
+  'foundation',
+  'transport',
+  'tools_filesystem',
+  'tools_postgres',
+  'tools_github',
+  'error_codes',
+  'scenarios',
+] as const
+
+const LEGACY_DOMAIN_ALIASES: Record<string, typeof CREATE_ARTICLE_DOMAINS[number]> = {
+  'tools-filesystem': 'tools_filesystem',
+  'tools-postgres': 'tools_postgres',
+  'tools-github': 'tools_github',
+  'error-codes': 'error_codes',
+}
+
+function normalizeDomain(input: unknown): string {
+  if (typeof input !== 'string') return ''
+  const normalized = input.trim().toLowerCase()
+  return LEGACY_DOMAIN_ALIASES[normalized] || normalized
+}
+
+function isDuplicateSlugError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: string }).code
+  if (code === 'P2002') {
+    const metaTarget = (error as { meta?: { target?: unknown } }).meta?.target
+    if (Array.isArray(metaTarget) && metaTarget.some((item) => String(item).includes('slug'))) {
+      return true
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  return /unique constraint failed/i.test(message) && /slug/i.test(message)
+}
+
 // 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
 function parseJsonField<T>(value: unknown, defaultValue: T): T {
   if (!value) return defaultValue
@@ -37,12 +76,10 @@ const createArticleSchema = z.object({
     zh: z.string().min(1),
     en: z.string().min(1),
   }),
-  domain: z.enum([
-    'mcp', 'skill',
-    'foundation', 'transport',
-    'tools_filesystem', 'tools_postgres', 'tools_github',
-    'error_codes', 'scenarios',
-  ]),
+  domain: z.preprocess(
+    normalizeDomain,
+    z.enum(CREATE_ARTICLE_DOMAINS)
+  ),
   priority: z.enum(['P0', 'P1']).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   author: z.string().min(1).optional(),
@@ -236,6 +273,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(successResponse(article))
   } catch (error) {
+    if (isDuplicateSlugError(error)) {
+      return NextResponse.json(
+        errorResponse(ErrorCodes.ALREADY_EXISTS, 'Slug 已存在，请更换后重试'),
+        { status: 409 }
+      )
+    }
+
     console.error('Create article error:', error)
     return NextResponse.json(
       errorResponse(ErrorCodes.INTERNAL_ERROR, '创建文章失败'),

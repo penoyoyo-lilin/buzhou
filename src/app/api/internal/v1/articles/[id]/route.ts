@@ -9,6 +9,32 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { articleService, UpdateArticleData } from '@/services/article.service'
 import { z } from 'zod'
 
+const UPDATE_ARTICLE_DOMAINS = [
+  'agent',
+  'mcp',
+  'skill',
+  'foundation',
+  'transport',
+  'tools_filesystem',
+  'tools_postgres',
+  'tools_github',
+  'error_codes',
+  'scenarios',
+] as const
+
+const LEGACY_DOMAIN_ALIASES: Record<string, typeof UPDATE_ARTICLE_DOMAINS[number]> = {
+  'tools-filesystem': 'tools_filesystem',
+  'tools-postgres': 'tools_postgres',
+  'tools-github': 'tools_github',
+  'error-codes': 'error_codes',
+}
+
+function normalizeArticleDomain(input: unknown): string {
+  if (typeof input !== 'string') return ''
+  const normalized = input.trim().toLowerCase()
+  return LEGACY_DOMAIN_ALIASES[normalized] || normalized
+}
+
 // 更新请求验证
 const updateArticleRequestSchema = z.object({
   title: z.object({
@@ -23,14 +49,10 @@ const updateArticleRequestSchema = z.object({
     zh: z.string().min(1),
     en: z.string().min(1),
   }).optional(),
-  domain: z.enum([
-    // 基础领域分类
-    'agent', 'mcp', 'skill',
-    // MVP 内容分类
-    'foundation', 'transport',
-    'tools_filesystem', 'tools_postgres', 'tools_github',
-    'error_codes', 'scenarios'
-  ]).optional(),
+  domain: z.preprocess(
+    normalizeArticleDomain,
+    z.enum(UPDATE_ARTICLE_DOMAINS)
+  ).optional(),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   codeBlocks: z.array(z.any()).optional(),

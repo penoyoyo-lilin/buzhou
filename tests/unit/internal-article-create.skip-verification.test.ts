@@ -302,4 +302,47 @@ describe('Internal create route - skipVerification', () => {
     expect(payload.error?.code).toBe('VALIDATION_ERROR')
     expect(articleCreateMock).not.toHaveBeenCalled()
   })
+
+  it('should normalize legacy hyphen domains to underscore on create', async () => {
+    const { POST } = await import('@/app/api/internal/v1/articles/route')
+
+    const legacyToCanonicalDomains: Array<[string, string]> = [
+      ['tools-filesystem', 'tools_filesystem'],
+      ['tools-postgres', 'tools_postgres'],
+      ['tools-github', 'tools_github'],
+      ['error-codes', 'error_codes'],
+    ]
+
+    for (const [legacyDomain, canonicalDomain] of legacyToCanonicalDomains) {
+      articleCreateMock.mockClear()
+
+      const request = new NextRequest('http://localhost:3000/api/internal/v1/articles', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer test-key',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slug: `internal-legacy-domain-${legacyDomain}`,
+          title: { zh: '标题', en: 'Title' },
+          summary: { zh: '摘要', en: 'Summary' },
+          content: { zh: '内容', en: 'Content' },
+          domain: legacyDomain,
+          author: 'domain-check',
+          skipVerification: true,
+        }),
+      })
+
+      const response = await POST(request)
+      const payload = await response.json() as { success: boolean }
+
+      expect(response.status).toBe(200)
+      expect(payload.success).toBe(true)
+      expect(articleCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          domain: canonicalDomain,
+        })
+      )
+    }
+  })
 })

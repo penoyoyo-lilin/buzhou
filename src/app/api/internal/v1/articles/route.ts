@@ -12,6 +12,31 @@ import { sandboxService } from '@/services/sandbox.service'
 import { eventBus } from '@/core/events'
 import { z } from 'zod'
 
+const CREATE_ARTICLE_DOMAINS = [
+  'mcp',
+  'skill',
+  'foundation',
+  'transport',
+  'tools_filesystem',
+  'tools_postgres',
+  'tools_github',
+  'error_codes',
+  'scenarios',
+] as const
+
+const LEGACY_DOMAIN_ALIASES: Record<string, typeof CREATE_ARTICLE_DOMAINS[number]> = {
+  'tools-filesystem': 'tools_filesystem',
+  'tools-postgres': 'tools_postgres',
+  'tools-github': 'tools_github',
+  'error-codes': 'error_codes',
+}
+
+function normalizeArticleDomain(input: unknown): string {
+  if (typeof input !== 'string') return ''
+  const normalized = input.trim().toLowerCase()
+  return LEGACY_DOMAIN_ALIASES[normalized] || normalized
+}
+
 // 验证记录验证
 const verificationRecordSchema = z.object({
   verifierId: z.number().int().positive(),
@@ -39,14 +64,10 @@ const createArticleRequestSchema = z.object({
     zh: z.string().min(1),
     en: z.string().min(1),
   }),
-  domain: z.enum([
-    // 基础领域分类
-    'mcp', 'skill',
-    // MVP 内容分类
-    'foundation', 'transport',
-    'tools_filesystem', 'tools_postgres', 'tools_github',
-    'error_codes', 'scenarios'
-  ]),
+  domain: z.preprocess(
+    normalizeArticleDomain,
+    z.enum(CREATE_ARTICLE_DOMAINS)
+  ),
   priority: z.enum(['P0', 'P1']).optional().default('P1'),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
