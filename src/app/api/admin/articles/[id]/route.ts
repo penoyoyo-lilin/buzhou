@@ -41,11 +41,6 @@ function isValidDomain(domain: string): boolean {
   return (ARTICLE_DOMAINS as readonly string[]).includes(domain)
 }
 
-function isPostgreSQLRuntime(): boolean {
-  const url = process.env.DATABASE_URL || ''
-  return url.includes('postgresql://') || url.includes('postgres://')
-}
-
 function isDomainStorageDriftError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
 
@@ -224,7 +219,7 @@ export async function PUT(
       })
     } catch (updateError) {
       const normalizedDomain = typeof updateData.domain === 'string' ? updateData.domain : null
-      if (isPostgreSQLRuntime() && normalizedDomain && isDomainStorageDriftError(updateError)) {
+      if (normalizedDomain && isDomainStorageDriftError(updateError)) {
         const writableDomain = await tryUpdateDomainWithFallbackCandidates(id, normalizedDomain)
         if (writableDomain) {
           // 先更新除 domain 外字段，避免 domain 枚举漂移阻塞其他字段更新

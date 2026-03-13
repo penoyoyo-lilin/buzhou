@@ -62,11 +62,6 @@ function isDuplicateSlugError(error: unknown): boolean {
   )
 }
 
-function isPostgreSQLRuntime(): boolean {
-  const url = process.env.DATABASE_URL || ''
-  return url.includes('postgresql://') || url.includes('postgres://')
-}
-
 function isSchemaDriftError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const code = (error as { code?: string }).code
@@ -431,7 +426,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (isPostgreSQLRuntime() && isSchemaDriftError(createError)) {
+      if (isSchemaDriftError(createError)) {
         article = await createArticleWithSqlFallback(data, author)
         usedSqlFallback = true
       } else {
