@@ -3,7 +3,6 @@ import { NextRequest } from 'next/server'
 
 const articleFindUniqueMock = vi.fn()
 const articleUpdateMock = vi.fn()
-const queryRawUnsafeMock = vi.fn()
 const executeRawUnsafeMock = vi.fn()
 const originalDatabaseUrl = process.env.DATABASE_URL
 
@@ -13,7 +12,6 @@ vi.mock('@/core/db/client', () => ({
       findUnique: articleFindUniqueMock,
       update: articleUpdateMock,
     },
-    $queryRawUnsafe: queryRawUnsafeMock,
     $executeRawUnsafe: executeRawUnsafeMock,
   },
   default: {
@@ -21,7 +19,6 @@ vi.mock('@/core/db/client', () => ({
       findUnique: articleFindUniqueMock,
       update: articleUpdateMock,
     },
-    $queryRawUnsafe: queryRawUnsafeMock,
     $executeRawUnsafe: executeRawUnsafeMock,
   },
 }))
@@ -38,7 +35,6 @@ describe('Admin article update domain normalization', () => {
       id: 'art_test_1',
       domain: 'tools_filesystem',
     })
-    queryRawUnsafeMock.mockResolvedValue([])
     executeRawUnsafeMock.mockResolvedValue(1)
   })
 
@@ -115,18 +111,14 @@ describe('Admin article update domain normalization', () => {
       )
     )
 
-    queryRawUnsafeMock.mockResolvedValueOnce([
-      { enumlabel: 'agent' },
-      { enumlabel: 'mcp' },
-      { enumlabel: 'skill' },
-      { enumlabel: 'foundation' },
-      { enumlabel: 'transport' },
-      { enumlabel: 'tools-filesystem' },
-      { enumlabel: 'tools-postgres' },
-      { enumlabel: 'tools-github' },
-      { enumlabel: 'error-codes' },
-      { enumlabel: 'scenarios' },
-    ])
+    executeRawUnsafeMock
+      .mockRejectedValueOnce(
+        Object.assign(
+          new Error('new row for relation "articles" violates check constraint "articles_domain_check"'),
+          { code: 'P2004' }
+        )
+      )
+      .mockResolvedValueOnce(1)
 
     const { PUT } = await import('@/app/api/admin/articles/[id]/route')
 
@@ -146,8 +138,16 @@ describe('Admin article update domain normalization', () => {
     expect(response.status).toBe(200)
     expect(payload.success).toBe(true)
     expect(payload.data?.domain).toBe('error_codes')
-    expect(executeRawUnsafeMock).toHaveBeenCalledWith(
-      expect.stringContaining(`'error-codes'::"ArticleDomain"`),
+    expect(executeRawUnsafeMock).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining(`SET "domain" = $1`),
+      'error_codes',
+      'art_test_1'
+    )
+    expect(executeRawUnsafeMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining(`SET "domain" = $1`),
+      'error-codes',
       'art_test_1'
     )
   })

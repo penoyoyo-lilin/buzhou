@@ -46,36 +46,42 @@ function isPostgreSQLRuntime(): boolean {
   return url.includes('postgresql://') || url.includes('postgres://')
 }
 
-function isDomainEnumDriftError(error: unknown): boolean {
+function isDomainStorageDriftError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
 
   const code = (error as { code?: string }).code
-  if (code === 'P2022' || code === 'P2010' || code === 'P2000') {
+  if (code === 'P2022' || code === 'P2010' || code === 'P2000' || code === 'P2004') {
     return true
   }
 
   const message = error instanceof Error ? error.message : String(error)
   return (
     /invalid input value for enum\s+"?ArticleDomain"?/i.test(message) ||
-    /value .* not found in enum.*ArticleDomain/i.test(message)
+    /value .* not found in enum.*ArticleDomain/i.test(message) ||
+    (/domain/i.test(message) && /check constraint/i.test(message))
   )
 }
 
-async function resolveLegacyDomainIfNeeded(domain: string): Promise<string | null> {
+async function tryUpdateDomainWithFallbackCandidates(
+  articleId: string,
+  domain: string
+): Promise<string | null> {
   const legacy = DOMAIN_LEGACY_VALUES[domain]
-  if (!legacy) return null
-
-  const enumValues = await prisma.$queryRawUnsafe<Array<{ enumlabel: string }>>(
-    `SELECT e.enumlabel
-     FROM pg_enum e
-     JOIN pg_type t ON t.oid = e.enumtypid
-     WHERE t.typname = 'ArticleDomain'`
-  )
-
-  const labels = new Set(enumValues.map((item) => item.enumlabel))
-  if (labels.has(domain)) return domain
-  if (labels.has(legacy)) return legacy
-
+  const candidates = [domain, legacy].filter((value): value is string => Boolean(value))
+  for (const candidate of candidates) {
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "articles" SET "domain" = $1, "updated_at" = NOW() WHERE "id" = $2`,
+        candidate,
+        articleId
+      )
+      return candidate
+    } catch (error) {
+      if (!isDomainStorageDriftError(error)) {
+        throw error
+      }
+    }
+  }
   return null
 }
 
@@ -218,8 +224,8 @@ export async function PUT(
       })
     } catch (updateError) {
       const normalizedDomain = typeof updateData.domain === 'string' ? updateData.domain : null
-      if (isPostgreSQLRuntime() && normalizedDomain && isDomainEnumDriftError(updateError)) {
-        const writableDomain = await resolveLegacyDomainIfNeeded(normalizedDomain)
+      if (isPostgreSQLRuntime() && normalizedDomain && isDomainStorageDriftError(updateError)) {
+        const writableDomain = await tryUpdateDomainWithFallbackCandidates(id, normalizedDomain)
         if (writableDomain) {
           // 先更新除 domain 外字段，避免 domain 枚举漂移阻塞其他字段更新
           const { domain: _domain, ...nonDomainData } = updateData
@@ -229,11 +235,6 @@ export async function PUT(
               data: nonDomainData,
             })
           }
-
-          await prisma.$executeRawUnsafe(
-            `UPDATE "articles" SET "domain" = '${writableDomain}'::"ArticleDomain", "updated_at" = NOW() WHERE "id" = $1`,
-            id
-          )
 
           const fallbackArticle = await prisma.article.findUnique({ where: { id } })
           if (fallbackArticle) {
