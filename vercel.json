@@ -3,10 +3,6 @@
     {
       "path": "/api/internal/v1/inspections/daily",
       "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/internal/v1/inspections/process",
-      "schedule": "*/15 * * * *"
     }
   ],
   "headers": [
