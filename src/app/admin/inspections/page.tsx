@@ -40,6 +40,7 @@ export default function AdminInspectionsPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<InspectionRun['status'] | ''>('')
   const [submitting, setSubmitting] = useState<'daily' | 'process' | null>(null)
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null)
 
   const fetchRuns = async () => {
     setLoading(true)
@@ -79,11 +80,22 @@ export default function AdminInspectionsPage() {
 
       const result = await response.json()
       if (!result.success) {
+        setActionFeedback(null)
         throw new Error(result.error?.message || '执行失败')
+      }
+
+      if (action === 'daily') {
+        const enqueued = Number(result.data?.enqueued ?? 0)
+        const processed = Number(result.data?.processed ?? 0)
+        setActionFeedback(`本次每日增量巡检已入队 ${enqueued} 条，已处理 ${processed} 条。`)
+      } else {
+        const processed = Number(result.data?.processed ?? 0)
+        setActionFeedback(`本次手动处理已完成 ${processed} 条。`)
       }
 
       await fetchRuns()
     } catch (error) {
+      setActionFeedback(null)
       console.error(`Failed to execute inspection action ${action}:`, error)
     } finally {
       setSubmitting(null)
@@ -151,7 +163,7 @@ export default function AdminInspectionsPage() {
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
             )}
-            每日增量入队
+            每日增量巡检
           </Button>
           <Button
             onClick={() => executeAction('process')}
@@ -183,6 +195,12 @@ export default function AdminInspectionsPage() {
           </div>
         </div>
       </div>
+
+      {actionFeedback ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {actionFeedback}
+        </div>
+      ) : null}
 
       <div className="flex items-center gap-3">
         <select

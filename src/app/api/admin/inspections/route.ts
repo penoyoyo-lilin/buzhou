@@ -86,9 +86,12 @@ export async function POST(request: NextRequest) {
 
     if (payload.action === 'daily') {
       const runs = await articleInspectionService.enqueueDailyIncrementalRun(payload.limit)
+      const results = await articleInspectionService.processQueuedRuns(payload.limit)
       return NextResponse.json(successResponse({
         enqueued: runs.length,
+        processed: results.length,
         runs,
+        results,
       }))
     }
 
