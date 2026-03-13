@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/core/db/client'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-response'
 import { toJsonValue, fromJsonValue } from '@/core/db/utils'
+import { ensureArticleDomainEnumValue, isArticleDomainEnumValueError } from '@/core/db/article-domain'
 
 const ARTICLE_DOMAINS = [
   'agent',
@@ -219,7 +220,17 @@ export async function PUT(
       })
     } catch (updateError) {
       const normalizedDomain = typeof updateData.domain === 'string' ? updateData.domain : null
-      if (normalizedDomain && isDomainStorageDriftError(updateError)) {
+      if (normalizedDomain && isArticleDomainEnumValueError(updateError, normalizedDomain)) {
+        const repaired = await ensureArticleDomainEnumValue(normalizedDomain)
+        if (repaired) {
+          article = await prisma.article.update({
+            where: { id },
+            data: updateData,
+          })
+        }
+      }
+
+      if (!article && normalizedDomain && isDomainStorageDriftError(updateError)) {
         const writableDomain = await tryUpdateDomainWithFallbackCandidates(id, normalizedDomain)
         if (writableDomain) {
           // 先更新除 domain 外字段，避免 domain 枚举漂移阻塞其他字段更新

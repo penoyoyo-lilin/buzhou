@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client'
 import { articleService, CreateArticleData } from '@/services/article.service'
 import { verificationService, CreateVerificationData } from '@/services/verification.service'
 import { eventBus } from '@/core/events'
+import { ensureArticleDomainEnumValue, isArticleDomainEnumValueError } from '@/core/db/article-domain'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 
@@ -418,19 +419,44 @@ export async function POST(request: NextRequest) {
         tags: data.tags,
         createdBy: author,
       } as CreateArticleData)
-    } catch (createError) {
-      if (isDuplicateSlugError(createError)) {
-        return NextResponse.json(
-          errorResponse(ErrorCodes.ALREADY_EXISTS, 'Slug 已存在，请更换后重试'),
-          { status: 409 }
-        )
+    } catch (rawCreateError) {
+      let createError: unknown = rawCreateError
+      let repairedCreateSucceeded = false
+
+      if (isArticleDomainEnumValueError(createError, data.domain)) {
+        const repaired = await ensureArticleDomainEnumValue(data.domain)
+        if (repaired) {
+          try {
+            article = await articleService.create({
+              slug: data.slug,
+              title: data.title,
+              summary: data.summary,
+              content: data.content,
+              domain: data.domain,
+              tags: data.tags,
+              createdBy: author,
+            } as CreateArticleData)
+            repairedCreateSucceeded = true
+          } catch (retryError) {
+            createError = retryError
+          }
+        }
       }
 
-      if (isSchemaDriftError(createError)) {
-        article = await createArticleWithSqlFallback(data, author)
-        usedSqlFallback = true
-      } else {
-        throw createError
+      if (!repairedCreateSucceeded) {
+        if (isDuplicateSlugError(createError)) {
+          return NextResponse.json(
+            errorResponse(ErrorCodes.ALREADY_EXISTS, 'Slug 已存在，请更换后重试'),
+            { status: 409 }
+          )
+        }
+
+        if (isSchemaDriftError(createError)) {
+          article = await createArticleWithSqlFallback(data, author)
+          usedSqlFallback = true
+        } else {
+          throw createError
+        }
       }
     }
 
