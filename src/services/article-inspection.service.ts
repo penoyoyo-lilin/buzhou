@@ -399,17 +399,52 @@ export class ArticleInspectionService {
 
   async takeNextQueuedRun(): Promise<InspectionRun | null> {
     const job = await shiftJob()
-    if (!job) return null
+    const startedAt = new Date()
 
-    const run = await prisma.inspectionRun.update({
-      where: { id: job.runId },
+    if (job) {
+      const run = await prisma.inspectionRun.update({
+        where: { id: job.runId },
+        data: {
+          status: 'running',
+          startedAt,
+        },
+      })
+
+      return transformInspectionRun(run)
+    }
+
+    // In serverless environments an in-memory queue can be lost between requests.
+    // Fall back to the oldest queued DB record so queued runs can still progress.
+    const candidate = await prisma.inspectionRun.findFirst({
+      where: { status: 'queued' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+
+    if (!candidate) {
+      return null
+    }
+
+    const claimed = await prisma.inspectionRun.updateMany({
+      where: {
+        id: candidate.id,
+        status: 'queued',
+      },
       data: {
         status: 'running',
-        startedAt: new Date(),
+        startedAt,
       },
     })
 
-    return transformInspectionRun(run)
+    if (claimed.count === 0) {
+      return null
+    }
+
+    const run = await prisma.inspectionRun.findUnique({
+      where: { id: candidate.id },
+    })
+
+    return run ? transformInspectionRun(run) : null
   }
 
   async processNextQueuedRun(): Promise<{
