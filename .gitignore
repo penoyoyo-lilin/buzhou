@@ -85,3 +85,12 @@ tests/unit/admin-article-update.domain-normalization.test.ts
 tests/unit/admin-article-update.domain-normalization.test.ts
 tests/unit/admin-article-update.domain-normalization.test.ts
 tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts
+tests/unit/verification.service.confidence-score.test.ts
+tests/unit/article.page.link-style.test.ts
+tests/unit/article-inspection.service.selection.test.ts
+tests/unit/verification.service.confidence-score.test.ts
+tests/unit/article-event-handlers.inspection.test.ts
+tests/unit/admin-article-update.domain-normalization.test.ts

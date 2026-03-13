@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server'
 const articleFindUniqueMock = vi.fn()
 const articleUpdateMock = vi.fn()
 const executeRawUnsafeMock = vi.fn()
+const eventBusEmitMock = vi.fn()
+const deleteCachePatternMock = vi.fn()
 const originalDatabaseUrl = process.env.DATABASE_URL
 
 vi.mock('@/core/db/client', () => ({
@@ -23,17 +25,36 @@ vi.mock('@/core/db/client', () => ({
   },
 }))
 
+vi.mock('@/core/events', () => ({
+  eventBus: {
+    emit: eventBusEmitMock,
+  },
+}))
+
+vi.mock('@/core/cache', () => ({
+  CacheKeys: {
+    article: (id: string) => `article:${id}`,
+    articleSlug: (slug: string) => `article:slug:${slug}`,
+  },
+  deleteCachePattern: deleteCachePatternMock,
+}))
+
 describe('Admin article update domain normalization', () => {
   beforeEach(() => {
+    vi.resetModules()
     vi.clearAllMocks()
     process.env.DATABASE_URL = originalDatabaseUrl
     articleFindUniqueMock.mockResolvedValue({
       id: 'art_test_1',
+      slug: 'article-slug',
       domain: 'foundation',
+      status: 'published',
     })
     articleUpdateMock.mockResolvedValue({
       id: 'art_test_1',
+      slug: 'article-slug',
       domain: 'tools_filesystem',
+      status: 'published',
     })
     executeRawUnsafeMock.mockResolvedValue(1)
   })
@@ -150,5 +171,113 @@ describe('Admin article update domain normalization', () => {
       'error-codes',
       'art_test_1'
     )
+  })
+
+  it('should emit article updated event and invalidate caches for admin content updates', async () => {
+    const { PUT } = await import('@/app/api/admin/articles/[id]/route')
+
+    const request = new NextRequest('http://localhost:3000/api/admin/articles/art_test_1', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: {
+          zh: '更新后的标题',
+          en: 'Updated title',
+        },
+        content: {
+          zh: '更新后的内容',
+          en: 'Updated content',
+        },
+      }),
+    })
+
+    const response = await PUT(request, { params: { id: 'art_test_1' } })
+    const payload = await response.json() as { success: boolean }
+
+    expect(response.status).toBe(200)
+    expect(payload.success).toBe(true)
+    expect(eventBusEmitMock).toHaveBeenCalledWith(
+      'article:updated',
+      expect.objectContaining({
+        articleId: 'art_test_1',
+        updatedBy: 'admin',
+        changes: expect.arrayContaining(['title', 'content']),
+      }),
+      expect.objectContaining({
+        aggregateId: 'art_test_1',
+        aggregateType: 'Article',
+        source: 'admin-panel',
+      })
+    )
+    expect(deleteCachePatternMock).toHaveBeenCalledWith('article:art_test_1')
+    expect(deleteCachePatternMock).toHaveBeenCalledWith('article:slug:article-slug')
+    expect(deleteCachePatternMock).toHaveBeenCalledWith('render:*:art_test_1:*')
+  })
+
+  it('should set publishedAt and emit article published event for admin publish transition', async () => {
+    const publishedAt = new Date('2026-03-13T10:00:00.000Z')
+
+    articleFindUniqueMock.mockResolvedValueOnce({
+      id: 'art_test_1',
+      slug: 'article-slug',
+      domain: 'foundation',
+      status: 'draft',
+    })
+    articleUpdateMock.mockImplementation(async ({ data }) => ({
+      id: 'art_test_1',
+      slug: 'article-slug',
+      domain: 'foundation',
+      status: data.status,
+      publishedAt: data.publishedAt ?? null,
+    }))
+
+    vi.useFakeTimers()
+    vi.setSystemTime(publishedAt)
+
+    try {
+      const { PUT } = await import('@/app/api/admin/articles/[id]/route')
+
+      const request = new NextRequest('http://localhost:3000/api/admin/articles/art_test_1', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'published',
+        }),
+      })
+
+      const response = await PUT(request, { params: { id: 'art_test_1' } })
+      const payload = await response.json() as { success: boolean }
+
+      expect(response.status).toBe(200)
+      expect(payload.success).toBe(true)
+      expect(articleUpdateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'art_test_1' },
+          data: expect.objectContaining({
+            status: 'published',
+            publishedAt,
+          }),
+        })
+      )
+      expect(eventBusEmitMock).toHaveBeenCalledWith(
+        'article:published',
+        expect.objectContaining({
+          articleId: 'art_test_1',
+          publishedAt: publishedAt.toISOString(),
+          publishedBy: 'admin',
+        }),
+        expect.objectContaining({
+          aggregateId: 'art_test_1',
+          aggregateType: 'Article',
+          source: 'admin-panel',
+        })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

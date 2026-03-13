@@ -95,4 +95,16 @@ describe('VerificationService confidence score constraints', () => {
     expect(payload.verificationStatus).toBe('failed')
     expect(payload.confidenceScore).toBeLessThanOrEqual(60)
   })
+
+  it('should treat partial-only verification records as partial status instead of pending', async () => {
+    verificationFindManyMock.mockResolvedValue([
+      { result: 'partial', verifierId: 1, verifiedAt: new Date('2026-03-12T10:00:00.000Z') },
+    ])
+
+    const { verificationService } = await import('@/services/verification.service')
+    await verificationService.updateArticleStatus('art_test')
+
+    const payload = getLastUpdatePayload()
+    expect(payload.verificationStatus).toBe('partial')
+  })
 })
