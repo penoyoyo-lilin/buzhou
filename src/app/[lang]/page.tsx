@@ -53,7 +53,7 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   // 记录页面访问
   useEffect(() => {
@@ -79,7 +79,7 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   const domain = searchParams.get('domain') as ArticleDomain | null
   const status = searchParams.get('status') as VerificationStatus | null
 
-  const normalizeArticles = useCallback((items: ArticleApiResponse[]) => (
+  const normalizeArticles = useCallback((items: ArticleApiResponse[]): Article[] => (
     items.map((item) => ({
       id: item.id,
       slug: item.slug,
@@ -88,6 +88,7 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
       domain: item.domain as ArticleDomain,
       tags: item.tags,
       verificationStatus: item.verificationStatus as VerificationStatus,
+      verificationRecords: [],
       priority: 'P1' as const,
       content: { zh: '', en: '' },
       codeBlocks: [],
@@ -101,10 +102,11 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
       qaPairs: [],
       relatedIds: [],
       status: 'published',
+      publishedAt: item.createdAt,
       createdBy: '',
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
-    })) as Article[]
+    }))
   ), [])
 
   const fetchArticles = useCallback(async (nextPage: number, append: boolean) => {
@@ -205,119 +207,85 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   return (
     <>
       {/* Schema.org 结构化数据 */}
-      <SchemaOrg data={[getOrganizationSchema(), getWebsiteSchema()]} />
+      <SchemaOrg schema={getOrganizationSchema()} />
+      <SchemaOrg schema={getWebsiteSchema()} />
 
-      <div className="container py-8">
-        {/* Hero 区 */}
-      <section className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-          {t(lang, 'home.title')}
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          {t(lang, 'home.subtitle')}
-        </p>
-      </section>
+      {/* Hero 区 */}
+      <div className="hero">
+        <h1>{t(lang, 'home.title')}</h1>
+        <p>{t(lang, 'home.subtitle')}</p>
+      </div>
 
       {/* 数据墙 */}
-      <DataWall className="mb-8" lang={lang} />
+      <DataWall />
 
       {/* 筛选区 */}
-      <section className="mb-6">
-        <FilterBar lang={lang} />
-      </section>
+      <FilterBar onSearch={handleSearch} />
 
       {/* 热门标签 */}
-      <section className="mb-8">
-        <p className="text-sm text-muted-foreground mb-2">{t(lang, 'home.popularTags')}</p>
-        <PopularTags
-          tags={popularTags}
-          onTagClick={handleTagClick}
-          selectedTag={searchQuery}
-        />
+      <section className="popular-tags">
+        <h2>{t(lang, 'home.popularTags')}</h2>
+        <PopularTags tags={popularTags} onTagClick={handleTagClick} />
       </section>
 
       {/* 文章列表 */}
-      <section>
+      <section className="articles">
         {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="skeleton-loader">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="rounded-lg border p-4">
-                <Skeleton className="h-4 w-20 mb-4" />
-                <Skeleton className="h-6 w-full mb-2" />
-                <Skeleton className="h-4 w-full mb-4" />
-                <Skeleton className="h-4 w-3/4" />
-              </div>
+              <Skeleton key={i} className="article-skeleton" />
             ))}
           </div>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t(lang, 'home.articleCount', { count: totalArticles })}
-            </p>
-            <ArticleList articles={articles} lang={lang} />
-            <div ref={loadMoreRef} className="flex justify-center py-6">
-              {isLoadingMore ? (
-                <LoaderBlock />
-              ) : hasMore ? (
-                <span className="text-sm text-muted-foreground">下滑加载更多</span>
-              ) : articles.length > 0 ? (
-                <span className="text-sm text-muted-foreground">已加载全部文章</span>
-              ) : null}
-            </div>
+            <h2>{t(lang, 'home.articleCount', { count: totalArticles })}</h2>
+            <ArticleList articles={articles} />
+            {isLoadingMore ? (
+              <LoaderBlock />
+            ) : hasMore ? (
+              <div ref={loadMoreRef}>下滑加载更多</div>
+            ) : articles.length > 0 ? (
+              <div>已加载全部文章</div>
+            ) : null}
           </>
         )}
       </section>
-    </div>
     </>
   )
 }
 
 function LoaderBlock() {
   return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Skeleton className="h-4 w-4 rounded-full" />
-      <span>正在加载更多文章...</span>
+    <div className="loader-block">
+      <div className="loader">正在加载更多文章...</div>
     </div>
   )
 }
 
 function HomeLoading() {
   return (
-    <div className="container py-8">
-      <section className="text-center mb-12">
-        <Skeleton className="h-10 w-40 mx-auto mb-4" />
-        <Skeleton className="h-6 w-96 mx-auto mb-8" />
-        <Skeleton className="h-12 w-full max-w-xl mx-auto mb-6" />
-      </section>
-      <section className="mb-8">
-        <div className="flex gap-4">
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-10 w-40" />
-        </div>
-      </section>
-      <section>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-lg border p-4">
-              <Skeleton className="h-4 w-20 mb-4" />
-              <Skeleton className="h-6 w-full mb-2" />
-              <Skeleton className="h-4 w-full mb-4" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          ))}
-        </div>
-      </section>
+    <div className="home-loading">
+      <div className="hero-skeleton">
+        <Skeleton className="title-skeleton" />
+        <Skeleton className="subtitle-skeleton" />
+      </div>
+      <Skeleton className="filter-skeleton" />
+      <div className="articles-skeleton">
+        {[...Array(6)].map((_, i) => (
+          <Skeleton key={i} className="article-skeleton" />
+        ))}
+      </div>
     </div>
   )
 }
 
 export default function HomePage() {
-  const params = useParams<{ lang: 'zh' | 'en' }>()
+  const params = useParams()
   const lang = params.lang || 'zh'
 
   return (
     <Suspense fallback={<HomeLoading />}>
-      <HomeContent lang={lang} />
+      <HomeContent lang={lang as 'zh' | 'en'} />
     </Suspense>
   )
 }
