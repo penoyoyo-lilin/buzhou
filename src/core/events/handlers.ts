@@ -38,6 +38,35 @@ export function registerArticleEventHandlers() {
     'relatedIds',
   ])
 
+  const isMissingArticleUpdateError = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false
+
+    const code = (error as { code?: string }).code
+    if (code === 'P2025') {
+      return true
+    }
+
+    const message = error instanceof Error ? error.message : String(error)
+    return /record to update not found/i.test(message)
+  }
+
+  const updateArticleIfExists = async (
+    articleId: string,
+    patch: Parameters<typeof articleService.update>[1],
+    reason: 'qaPairs' | 'tags' | 'relatedIds'
+  ): Promise<boolean> => {
+    try {
+      await articleService.update(articleId, patch)
+      return true
+    } catch (error) {
+      if (isMissingArticleUpdateError(error)) {
+        console.warn(`[ArticleEventHandler] Skip ${reason} update for deleted article ${articleId}`)
+        return false
+      }
+      throw error
+    }
+  }
+
   // 监听文章创建事件
   eventBus.on('article:created', async (event) => {
     const { articleId, needsQAGeneration, needsRelatedGeneration, needsKeywordsGeneration } = event.payload as {
@@ -65,10 +94,12 @@ export function registerArticleEventHandlers() {
         tasks.push(
           aiService.generateQAPairs(article).then(async (result) => {
             if (result.qaPairs.length > 0) {
-              await articleService.update(articleId, {
+              const updated = await updateArticleIfExists(articleId, {
                 qaPairs: result.qaPairs,
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.qaPairs.length} QA pairs for ${articleId}`)
+              }, 'qaPairs')
+              if (updated) {
+                console.log(`[ArticleEventHandler] Generated ${result.qaPairs.length} QA pairs for ${articleId}`)
+              }
             }
           })
         )
@@ -81,10 +112,12 @@ export function registerArticleEventHandlers() {
             if (result.keywords.length > 0) {
               const existingTags = new Set(article.tags)
               result.keywords.forEach((k) => existingTags.add(k))
-              await articleService.update(articleId, {
+              const updated = await updateArticleIfExists(articleId, {
                 tags: Array.from(existingTags),
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.keywords.length} keywords for ${articleId}`)
+              }, 'tags')
+              if (updated) {
+                console.log(`[ArticleEventHandler] Generated ${result.keywords.length} keywords for ${articleId}`)
+              }
             }
           })
         )
@@ -116,10 +149,12 @@ export function registerArticleEventHandlers() {
             })) as any[]
             const result = await aiService.generateRelatedIds(article, parsedArticles)
             if (result.relatedIds.length > 0) {
-              await articleService.update(articleId, {
+              const updated = await updateArticleIfExists(articleId, {
                 relatedIds: result.relatedIds,
-              })
-              console.log(`[ArticleEventHandler] Generated ${result.relatedIds.length} related articles for ${articleId}`)
+              }, 'relatedIds')
+              if (updated) {
+                console.log(`[ArticleEventHandler] Generated ${result.relatedIds.length} related articles for ${articleId}`)
+              }
             }
           })()
         )

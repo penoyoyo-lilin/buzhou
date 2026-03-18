@@ -225,8 +225,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 发布事件触发异步生成任务
-        await eventBus.emit(
+        // 不阻塞主请求，异步触发 AI 生成链路
+        void eventBus.emit(
           'article:created',
           {
             articleId: article.id,
@@ -242,7 +242,9 @@ export async function POST(request: NextRequest) {
             aggregateType: 'Article',
             source: 'internal-api',
           }
-        )
+        ).catch((eventError) => {
+          console.error(`[InternalArticleCreateAPI] Failed to emit article:created for ${article.id}:`, eventError)
+        })
 
         results.push({ success: true, article })
       } catch (error) {

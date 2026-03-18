@@ -26,11 +26,30 @@ async function withTracking(
   return response
 }
 
+async function parseOptionalJsonBody(request: NextRequest): Promise<Record<string, unknown> | null> {
+  const rawBody = await request.text()
+  if (!rawBody.trim()) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawBody) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   try {
-    const body = await request.json()
-    const { path, referrer } = body
+    const body = await parseOptionalJsonBody(request)
+    if (!body) {
+      const response = NextResponse.json(successResponse({ recorded: false }))
+      return await withTracking(request, startTime, response)
+    }
+
+    const path = typeof body.path === 'string' ? body.path : ''
+    const referrer = typeof body.referrer === 'string' ? body.referrer : null
 
     if (!path) {
       const response = NextResponse.json(

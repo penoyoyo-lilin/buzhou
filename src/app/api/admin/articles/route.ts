@@ -483,8 +483,8 @@ export async function POST(request: NextRequest) {
       await articleService.publish(article.id, 'admin')
     }
 
-    // 发布事件触发异步生成任务
-    await eventBus.emit(
+    // 不阻塞主请求，异步触发 AI 生成链路
+    void eventBus.emit(
       'article:created',
       {
         articleId: article.id,
@@ -500,7 +500,9 @@ export async function POST(request: NextRequest) {
         aggregateType: 'Article',
         source: 'admin-panel',
       }
-    )
+    ).catch((eventError) => {
+      console.error(`[ArticleCreateAPI] Failed to emit article:created for ${article.id}:`, eventError)
+    })
 
     return NextResponse.json(successResponse(article))
   } catch (error) {

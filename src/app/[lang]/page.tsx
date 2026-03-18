@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense, useRef } from 'react'
 import { useSearchParams, useRouter, useParams } from 'next/navigation'
 import { PopularTags } from '@/components/shared/search-bar'
 import { FilterBar } from '@/components/shared/filter-bar'
@@ -25,6 +25,16 @@ interface ArticleApiResponse {
   updatedAt: string
 }
 
+interface SearchResponseData {
+  items: ArticleApiResponse[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
+
 // 热门标签类型
 interface TagCount {
   name: string
@@ -37,8 +47,13 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [articles, setArticles] = useState<Article[]>([])
+  const [totalArticles, setTotalArticles] = useState(0)
   const [popularTags, setPopularTags] = useState<TagCount[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
   // 记录页面访问
   useEffect(() => {
@@ -64,73 +79,108 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
   const domain = searchParams.get('domain') as ArticleDomain | null
   const status = searchParams.get('status') as VerificationStatus | null
 
-  // 从 API 获取文章
-  const fetchArticles = useCallback(async () => {
-    setIsLoading(true)
+  const normalizeArticles = useCallback((items: ArticleApiResponse[]) => (
+    items.map((item) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      summary: item.summary,
+      domain: item.domain as ArticleDomain,
+      tags: item.tags,
+      verificationStatus: item.verificationStatus as VerificationStatus,
+      priority: 'P1' as const,
+      content: { zh: '', en: '' },
+      codeBlocks: [],
+      keywords: [],
+      metadata: {
+        applicableVersions: [],
+        confidenceScore: item.confidenceScore,
+        riskLevel: 'low',
+        runtimeEnv: [],
+      },
+      qaPairs: [],
+      relatedIds: [],
+      status: 'published',
+      createdBy: '',
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    })) as Article[]
+  ), [])
+
+  const fetchArticles = useCallback(async (nextPage: number, append: boolean) => {
+    if (append) {
+      setIsLoadingMore(true)
+    } else {
+      setIsLoading(true)
+    }
+
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set('q', searchQuery)
       if (domain) params.set('domain', domain)
       if (status) params.set('status', status)
       params.set('pageSize', '20')
+      params.set('page', String(nextPage))
 
       const res = await fetch(`/api/v1/search?${params.toString()}`)
       const data = await res.json()
 
       if (data.success) {
-        const items = data.data.items.map((item: ArticleApiResponse) => ({
-          id: item.id,
-          slug: item.slug,
-          title: item.title,
-          summary: item.summary,
-          domain: item.domain as ArticleDomain,
-          tags: item.tags,
-          verificationStatus: item.verificationStatus as VerificationStatus,
-          priority: 'P1' as const,
-          content: { zh: '', en: '' },
-          codeBlocks: [],
-          keywords: [],
-          metadata: {
-            applicableVersions: [],
-            confidenceScore: item.confidenceScore,
-            riskLevel: 'low',
-            runtimeEnv: [],
-          },
-          qaPairs: [],
-          relatedIds: [],
-          status: 'published',
-          createdBy: '',
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-        })) as Article[]
+        const payload = data.data as SearchResponseData
+        const items = normalizeArticles(payload.items)
 
-        setArticles(items)
+        setArticles((current) => append ? [...current, ...items] : items)
+        setTotalArticles(payload.pagination.total)
+        setPage(payload.pagination.page)
+        setHasMore(payload.pagination.page < payload.pagination.totalPages)
 
-        // 从文章中提取标签
-        const tagCounts: Record<string, number> = {}
-        items.forEach((article: Article) => {
-          article.tags?.forEach((tag: string) => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1
+        if (!append) {
+          const tagCounts: Record<string, number> = {}
+          items.forEach((article: Article) => {
+            article.tags?.forEach((tag: string) => {
+              tagCounts[tag] = (tagCounts[tag] || 0) + 1
+            })
           })
-        })
-        const tags = Object.entries(tagCounts)
-          .map(([name, count]) => ({ name, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 10)
-        if (tags.length > 0) {
+          const tags = Object.entries(tagCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10)
           setPopularTags(tags)
         }
       }
     } catch (error) {
       console.error('Failed to fetch articles:', error)
+      if (!append) {
+        setArticles([])
+        setTotalArticles(0)
+        setHasMore(false)
+      }
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
-  }, [searchQuery, domain, status])
+  }, [searchQuery, domain, status, normalizeArticles])
 
   useEffect(() => {
-    fetchArticles()
+    fetchArticles(1, false)
   }, [fetchArticles])
+
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || isLoading || isLoadingMore || !hasMore) {
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const [entry] = entries
+      if (entry?.isIntersecting && !isLoadingMore && hasMore) {
+        fetchArticles(page + 1, true)
+      }
+    }, { rootMargin: '200px' })
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [fetchArticles, hasMore, isLoading, isLoadingMore, page])
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query)
@@ -202,14 +252,32 @@ function HomeContent({ lang }: { lang: 'zh' | 'en' }) {
         ) : (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              {t(lang, 'home.articleCount', { count: articles.length })}
+              {t(lang, 'home.articleCount', { count: totalArticles })}
             </p>
             <ArticleList articles={articles} lang={lang} />
+            <div ref={loadMoreRef} className="flex justify-center py-6">
+              {isLoadingMore ? (
+                <LoaderBlock />
+              ) : hasMore ? (
+                <span className="text-sm text-muted-foreground">下滑加载更多</span>
+              ) : articles.length > 0 ? (
+                <span className="text-sm text-muted-foreground">已加载全部文章</span>
+              ) : null}
+            </div>
           </>
         )}
       </section>
     </div>
     </>
+  )
+}
+
+function LoaderBlock() {
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Skeleton className="h-4 w-4 rounded-full" />
+      <span>正在加载更多文章...</span>
+    </div>
   )
 }
 

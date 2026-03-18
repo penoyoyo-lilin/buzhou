@@ -52,6 +52,32 @@ type SearchListItem = {
   updatedAt: string
 }
 
+type RawSearchArticle = {
+  id: string
+  slug: string
+  title: unknown
+  summary: unknown
+  domain: string
+  tags: unknown
+  verificationStatus?: string
+  metadata?: unknown
+  createdAt: unknown
+  updatedAt: unknown
+}
+
+type ParsedSearchArticle = {
+  id: string
+  slug: string
+  title: { zh: string; en: string }
+  summary: { zh: string; en: string }
+  domain: string
+  tags: string[]
+  verificationStatus?: string
+  metadata?: Record<string, unknown>
+  createdAt: unknown
+  updatedAt: unknown
+}
+
 function toSafeISOString(value: unknown): string {
   if (value instanceof Date) return value.toISOString()
   if (typeof value === 'string') {
@@ -71,6 +97,38 @@ function buildEmptyResponse(params: { page: number; pageSize: number }) {
       totalPages: 0,
     },
   })
+}
+
+function parseJsonField<T>(value: unknown, defaultValue: T): T {
+  if (!value) return defaultValue
+  if (typeof value !== 'string') return value as T
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return defaultValue
+  }
+}
+
+function parseArticle(article: RawSearchArticle): ParsedSearchArticle {
+  return {
+    ...article,
+    title: parseJsonField(article.title, { zh: '', en: '' }),
+    summary: parseJsonField(article.summary, { zh: '', en: '' }),
+    tags: parseJsonField(article.tags, [] as string[]),
+    metadata: parseJsonField(article.metadata, {}),
+  }
+}
+
+function matchesQuery(article: ParsedSearchArticle, query: string): boolean {
+  const normalized = query.toLowerCase()
+  const titleMatch =
+    article.title.zh?.toLowerCase().includes(normalized) ||
+    article.title.en?.toLowerCase().includes(normalized)
+  const summaryMatch =
+    article.summary.zh?.toLowerCase().includes(normalized) ||
+    article.summary.en?.toLowerCase().includes(normalized)
+  const tagsMatch = article.tags?.some((tag: string) => tag.toLowerCase().includes(normalized))
+  return titleMatch || summaryMatch || tagsMatch
 }
 
 export async function GET(request: NextRequest) {
@@ -94,50 +152,53 @@ export async function GET(request: NextRequest) {
       where.verificationStatus = params.status
     }
 
-    // 搜索条件
-    if (params.q) {
-      const query = params.q.toLowerCase()
-      // SQLite 不支持全文搜索，使用 LIKE
-      // 由于 JSON 字段存储，我们需要在应用层过滤
-    }
-
     let total = 0
-    let articles: Array<{
-      id: string
-      slug: string
-      title: unknown
-      summary: unknown
-      domain: string
-      tags: unknown
-      verificationStatus?: string
-      metadata?: unknown
-      createdAt: unknown
-      updatedAt: unknown
-    }> = []
+    let articles: RawSearchArticle[] = []
 
     try {
-      total = await prisma.article.count({ where })
-      articles = await prisma.article.findMany({
-        where,
-        orderBy: [
-          { publishedAt: 'desc' },
-          { createdAt: 'desc' },
-        ],
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          summary: true,
-          domain: true,
-          tags: true,
-          verificationStatus: true,
-          metadata: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      })
+      const baseSelect = {
+        id: true,
+        slug: true,
+        title: true,
+        summary: true,
+        domain: true,
+        tags: true,
+        verificationStatus: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+      } as const
+
+      if (params.q) {
+        const allMatchedCandidates = await prisma.article.findMany({
+          where,
+          orderBy: [
+            { publishedAt: 'desc' },
+            { createdAt: 'desc' },
+          ],
+          select: baseSelect,
+        })
+
+        const filtered = allMatchedCandidates
+          .map(parseArticle)
+          .filter((article) => matchesQuery(article, params.q!))
+
+        total = filtered.length
+        const pageStart = (params.page - 1) * params.pageSize
+        articles = filtered.slice(pageStart, pageStart + params.pageSize)
+      } else {
+        total = await prisma.article.count({ where })
+        articles = await prisma.article.findMany({
+          where,
+          orderBy: [
+            { publishedAt: 'desc' },
+            { createdAt: 'desc' },
+          ],
+          skip: (params.page - 1) * params.pageSize,
+          take: params.pageSize,
+          select: baseSelect,
+        })
+      }
     } catch (dbError) {
       console.error('[SearchAPI] primary query failed, fallback to empty result:', dbError)
       const response = NextResponse.json(
@@ -152,42 +213,7 @@ export async function GET(request: NextRequest) {
       return await withTracking(request, startTime, response)
     }
 
-   // 辅助函数：安全解析 JSON 字段（兼容 PostgreSQL 和 SQLite）
-  const parseJsonField = <T>(value: unknown, defaultValue: T): T => {
-    if (!value) return defaultValue
-    // PostgreSQL 的 Json 类型返回已解析的对象
-    if (typeof value !== 'string') return value as T
-    // SQLite 存储为 JSON 字符串，需要解析
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return defaultValue
-    }
-  }
-
-   // PostgreSQL 的 Json 类型返回已解析的对象，SQLite 需要解析
-   let results = articles.map((article) => ({
-    ...article,
-    title: parseJsonField(article.title, { zh: '', en: '' }),
-    summary: parseJsonField(article.summary, { zh: '', en: '' }),
-    tags: parseJsonField(article.tags, [] as string[]),
-    metadata: parseJsonField(article.metadata, {}),
-  }))
-
-  // 如果有搜索词，在应用层过滤
-    if (params.q) {
-      const query = params.q.toLowerCase()
-      results = results.filter((article) => {
-        const titleMatch =
-          article.title.zh?.toLowerCase().includes(query) ||
-          article.title.en?.toLowerCase().includes(query)
-        const summaryMatch =
-          article.summary.zh?.toLowerCase().includes(query) ||
-          article.summary.en?.toLowerCase().includes(query)
-        const tagsMatch = article.tags?.some((t: string) => t.toLowerCase().includes(query))
-        return titleMatch || summaryMatch || tagsMatch
-      })
-    }
+    const results = articles.map(parseArticle)
 
     // 构建响应
     const items: SearchListItem[] = results.map((article) => ({
